@@ -1,0 +1,34 @@
+Package: MitoDiveR
+Type: Package
+Title: Comparative Mitochondrial Genomics in R
+Version: 0.1.0
+Authors@R: 
+    person("Michael W.", "Sandel", 
+           email = "michael.sandel@msstate.edu", 
+           role = c("aut", "cre"))
+Description: Tools for comparative analysis, annotation parsing, and 
+    visualization of mitochondrial genomes across species. MitoDiveR 
+    enables import of annotated mitogenomes, extraction of gene features, 
+    comparison of gene content and order, analysis of sequence divergence, 
+    and preparation of datasets for evolutionary and phylogenetic studies.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.2)
+Imports:
+    tibble,
+    dplyr,
+    purrr,
+    stringr,
+    ape
+Suggests:
+    ggplot2,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+URL: https://github.com/YOUR-USERNAME/MitoDiveR
+BugReports: https://github.com/YOUR-USERNAME/MitoDiveR/issues
