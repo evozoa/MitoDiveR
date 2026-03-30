@@ -29,10 +29,7 @@ MitoDiveR is currently available from GitHub.
 
 ```r
 install.packages("remotes")
-remotes::install_github("YOUR-USERNAME/MitoDiveR")
-```
-
-Replace `YOUR-USERNAME` with the repository owner.
+remotes::install_github("evozoa/MitoDiveR")
 
 ---
 
