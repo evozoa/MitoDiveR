@@ -130,22 +130,19 @@ search_mdp_homologs <- function(conserved_orfs,
     mdp_lib <- c(mdp_lib, mdps[!names(mdps) %in% names(mdp_lib)])
   }
 
-  ## ---- select one representative per cluster --------------------------------
-  # Longest protein (stop stripped), ties broken by seq_id alphabetically
-  conserved_orfs$.prot_clean <- gsub("\\*$", "", conserved_orfs$protein_sequence)
+  ## ---- prepare all unique ORFs for alignment --------------------------------
+  conserved_orfs$.prot_clean <- gsub("[*]$", "", conserved_orfs$protein_sequence)
   conserved_orfs$.prot_len   <- nchar(conserved_orfs$.prot_clean)
 
-  reps <- do.call(rbind, lapply(split(conserved_orfs, conserved_orfs$cluster_id), function(df) {
-    df_s  <- df[order(-df$.prot_len, df$seq_id), ]
-    df_s[1L, ]
-  }))
+  # De-duplicate by protein sequence — same sequence in multiple rows adds no info
+  orfs_unique <- conserved_orfs[!duplicated(conserved_orfs$.prot_clean), ]
 
-  ## ---- pairwise alignment: representative vs each MDP ----------------------
-  result_rows <- vector("list", nrow(reps) * length(mdp_lib))
+  ## ---- pairwise alignment: every unique ORF vs each MDP -------------------
+  result_rows <- vector("list", nrow(orfs_unique) * length(mdp_lib))
   k <- 0L
 
-  for (ri in seq_len(nrow(reps))) {
-    rep_row  <- reps[ri, ]
+  for (ri in seq_len(nrow(orfs_unique))) {
+    rep_row  <- orfs_unique[ri, ]
     prot_seq <- rep_row$.prot_clean
     prot_len <- rep_row$.prot_len
     if (prot_len < 2L) next
@@ -179,18 +176,26 @@ search_mdp_homologs <- function(conserved_orfs,
 
       k <- k + 1L
       result_rows[[k]] <- data.frame(
-        query_id              = paste0("cluster_", rep_row$cluster_id, "_", rep_row$seq_id),
-        cluster_id            = rep_row$cluster_id,
-        query_length_aa       = prot_len,
+        query_id               = paste0("cluster_", rep_row$cluster_id,
+                                        "_", rep_row$seq_id,
+                                        "_", rep_row$start),
+        cluster_id             = rep_row$cluster_id,
+        seq_id                 = rep_row$seq_id,
+        orf_start              = rep_row$start,
+        orf_end                = rep_row$end,
+        strand                 = rep_row$strand,
+        genomic_region         = if ("genomic_region" %in% names(rep_row))
+                                   rep_row$genomic_region else NA_character_,
+        query_length_aa        = prot_len,
         query_protein_sequence = prot_seq,
-        mdp_name              = mdp_name,
-        mdp_length_aa         = mdp_len,
-        mdp_sequence          = mdp_seq,
-        pct_identity          = pct_id,
-        alignment_score       = aln_scr,
-        query_coverage        = q_cov,
-        mdp_coverage          = mdp_cov,
-        stringsAsFactors      = FALSE
+        mdp_name               = mdp_name,
+        mdp_length_aa          = mdp_len,
+        mdp_sequence           = mdp_seq,
+        pct_identity           = pct_id,
+        alignment_score        = aln_scr,
+        query_coverage         = q_cov,
+        mdp_coverage           = mdp_cov,
+        stringsAsFactors       = FALSE
       )
     }
   }
@@ -202,7 +207,7 @@ search_mdp_homologs <- function(conserved_orfs,
   }
 
   out <- do.call(rbind, result_rows[seq_len(k)])
-  out <- out[order(out$cluster_id, -out$pct_identity), ]
+  out <- out[order(out$cluster_id, out$orf_start, -out$pct_identity), ]
   rownames(out) <- NULL
   out
 }
