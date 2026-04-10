@@ -2,11 +2,13 @@
 
 export(annotate_genomic_regions)
 export(cluster_conserved_orfs)
+export(esmfold_plddt)
 export(fetch_mito_genbank)
 export(find_conserved_windows)
 export(find_orfs)
 export(translate_all_frames)
 export(mdp_sequences)
+export(predict_esmfold)
 export(predict_tmhmm)
 export(search_mdp_homologs)
 export(tmhmm_domains)
