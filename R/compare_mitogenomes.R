@@ -758,9 +758,11 @@ compare_mitogenomes <- function(
   label1   <- s1$name
   label2   <- s2$name
 
-  ## Detect accession for annotation fetching (only attempt if looks like one)
+  ## Detect accessions for annotation fetching (only attempt if looks like one)
   acc1 <- if (is.character(seq1) && grepl("^[A-Za-z0-9_.]{6,20}$", trimws(seq1)))
     trimws(seq1) else NULL
+  acc2 <- if (is.character(seq2) && grepl("^[A-Za-z0-9_.]{6,20}$", trimws(seq2)))
+    trimws(seq2) else NULL
 
   ## =========================================================================
   ## 2. Fetch GenBank features
@@ -801,6 +803,25 @@ compare_mitogenomes <- function(
     if (is.null(features)) {
       warning("No genomic annotations available; mutations will be labelled 'intergenic'.",
               call. = FALSE)
+    }
+  }
+
+  ## Fetch alt-genome features (needed by analyze_protein_impacts for direct
+  ## CDS translation when the two genomes have different gene order/strand).
+  features2 <- NULL
+  if (!is.null(acc2)) {
+    message("Fetching GenBank annotations for '", label2, "'...")
+    features2 <- tryCatch(.parse_gb_features(acc2), error = function(e) NULL)
+    if (is.null(features2)) {
+      ann2 <- tryCatch(fetch_annotations(acc2), error = function(e) NULL)
+      if (!is.null(ann2) && nrow(ann2) > 0L) {
+        fc <- sub(":.*$", "", ann2$region_type)
+        gc <- sub("^[^:]+:", "", ann2$region_type)
+        gc[gc == fc] <- ""
+        features2 <- data.frame(feature=fc, gene=gc,
+                                 start=ann2$start, end=ann2$end,
+                                 strand=ann2$strand, stringsAsFactors=FALSE)
+      }
     }
   }
 
@@ -1128,13 +1149,14 @@ compare_mitogenomes <- function(
   rownames(result) <- NULL
 
   ## Attach metadata and raw data as attributes for use by analyze_protein_impacts()
-  attr(result, "label1")   <- label1
-  attr(result, "label2")   <- label2
-  attr(result, "seq1_str") <- seq1_str
-  attr(result, "seq2_str") <- seq2_str
-  attr(result, "features") <- features
-  attr(result, "mdp_ref")  <- mdp_ref
-  attr(result, "mdp_alt")  <- mdp_alt
+  attr(result, "label1")    <- label1
+  attr(result, "label2")    <- label2
+  attr(result, "seq1_str")  <- seq1_str
+  attr(result, "seq2_str")  <- seq2_str
+  attr(result, "features")  <- features
+  attr(result, "features2") <- features2
+  attr(result, "mdp_ref")   <- mdp_ref
+  attr(result, "mdp_alt")   <- mdp_alt
 
   class(result) <- c("mito_comparison", "data.frame")
   result
