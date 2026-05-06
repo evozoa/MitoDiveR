@@ -317,11 +317,12 @@ analyze_protein_impacts <- function(comparison,
     stop("'comparison' must be a mito_comparison object from compare_mitogenomes().",
          call. = FALSE)
 
-  seq1_str <- attr(comparison, "seq1_str")
-  seq2_str <- attr(comparison, "seq2_str")
-  features <- attr(comparison, "features")
-  mdp_ref  <- attr(comparison, "mdp_ref")
-  mdp_alt  <- attr(comparison, "mdp_alt")
+  seq1_str  <- attr(comparison, "seq1_str")
+  seq2_str  <- attr(comparison, "seq2_str")
+  features  <- attr(comparison, "features")
+  features2 <- attr(comparison, "features2")
+  mdp_ref   <- attr(comparison, "mdp_ref")
+  mdp_alt   <- attr(comparison, "mdp_alt")
 
   if (is.null(seq1_str) || is.null(seq2_str))
     stop("Comparison object is missing stored sequences. ",
@@ -357,36 +358,47 @@ analyze_protein_impacts <- function(comparison,
       }, error = function(e) NULL)
       if (is.null(prot_ref)) next
 
-      ## Build alt protein by applying per-mutation AA changes to ref protein
       gene_muts <- cds_muts[!is.na(cds_muts$canonical_gene) &
                                cds_muts$canonical_gene == gene, , drop = FALSE]
-      p_chars <- strsplit(.strip_stop(prot_ref), "")[[1L]]
 
-      for (mi in seq_len(nrow(gene_muts))) {
-        effect  <- gene_muts$aa_effect[mi]
-        aa_r    <- gene_muts$aa_ref[mi]
-        aa_a    <- gene_muts$aa_alt[mi]
-        pos_r   <- gene_muts$pos_ref[mi]
-        if (is.na(effect) || is.na(pos_r)) next
+      ## Primary: translate alt protein using the alt-genome annotation (features2).
+      ## This correctly handles cases where the two genomes differ in gene order,
+      ## strand orientation, or absolute gene position (e.g. family-level divergence).
+      prot_alt <- tryCatch({
+        feat2_row <- features2[features2$feature == "CDS" &
+                                 features2$gene == gene, , drop = FALSE]
+        if (nrow(feat2_row) == 0L) stop("no alt feature")
+        cds_alt_seq <- .extract_cds_seq(seq2_str, feat2_row)
+        as.character(Biostrings::translate(
+          Biostrings::DNAString(cds_alt_seq),
+          genetic.code   = Biostrings::getGeneticCode("SGC1"),
+          if.fuzzy.codon = "solve"
+        ))
+      }, error = function(e) NULL)
 
-        ## Compute 1-based AA position within the protein
-        s <- as.integer(feat_row$start[1L])
-        e <- as.integer(feat_row$end[1L])
-        aa_pos <- if (feat_row$strand[1L] == "+") (pos_r - s) %/% 3L + 1L
-                  else                             (e - pos_r) %/% 3L + 1L
-
-        if (effect == "missense" && !is.na(aa_a) &&
-            aa_pos >= 1L && aa_pos <= length(p_chars)) {
-          p_chars[aa_pos] <- aa_a
-        } else if (effect == "nonsense" &&
-                   aa_pos >= 1L && aa_pos <= length(p_chars)) {
-          p_chars <- p_chars[seq_len(aa_pos - 1L)]   # truncate at new stop
-        } else if (effect == "frameshift" &&
-                   aa_pos >= 1L && aa_pos <= length(p_chars)) {
-          p_chars[aa_pos:length(p_chars)] <- "X"     # mark frameshifted region
+      ## Fallback: apply missense/nonsense changes from the comparison table.
+      ## Used when features2 is unavailable (e.g. sequences supplied directly).
+      if (is.null(prot_alt)) {
+        p_chars <- strsplit(.strip_stop(prot_ref), "")[[1L]]
+        for (mi in seq_len(nrow(gene_muts))) {
+          effect <- gene_muts$aa_effect[mi]
+          aa_a   <- gene_muts$aa_alt[mi]
+          pos_r  <- gene_muts$pos_ref[mi]
+          if (is.na(effect) || is.na(pos_r)) next
+          s      <- as.integer(feat_row$start[1L])
+          e      <- as.integer(feat_row$end[1L])
+          aa_pos <- if (feat_row$strand[1L] == "+") (pos_r - s) %/% 3L + 1L
+                    else                             (e - pos_r) %/% 3L + 1L
+          if (effect == "missense" && !is.na(aa_a) &&
+              aa_pos >= 1L && aa_pos <= length(p_chars)) {
+            p_chars[aa_pos] <- aa_a
+          } else if (effect == "nonsense" &&
+                     aa_pos >= 1L && aa_pos <= length(p_chars)) {
+            p_chars <- p_chars[seq_len(aa_pos - 1L)]
+          }
         }
+        prot_alt <- paste(p_chars, collapse = "")
       }
-      prot_alt <- paste(p_chars, collapse = "")
 
       if (.strip_stop(prot_ref) == prot_alt) next   # only synonymous changes
 
