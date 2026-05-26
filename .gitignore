@@ -7,3 +7,6 @@
 # RStudio
 .Rproj.user/
 *.Rproj
+
+# rclone mount point for the Google Drive Geromedicine folder
+geromedicine_drive/
