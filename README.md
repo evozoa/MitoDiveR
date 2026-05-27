@@ -41,66 +41,80 @@ MitoDiveR is currently available from GitHub.
 ```r
 install.packages("remotes")
 remotes::install_github("evozoa/MitoDiveR")
+```
 
 ---
 
 ## Quick Start
 
-### Load the package
-
 ```r
 library(MitoDiveR)
-```
 
-### Import mitochondrial genomes
+# Fetch a mitogenome (sequence + parsed GenBank features) from NCBI
+human <- fetch_mito_genbank("NC_012920.1")[["NC_012920.1"]]
 
-```r
-mt_list <- mito_import_genbank("data/mitogenomes/")
-```
+# Detect ORFs across all six reading frames. The genetic code must be chosen
+# explicitly: "SGC1" = vertebrate mitochondrial, "SGC0" = standard.
+orfs <- scan_orfs(
+  Biostrings::DNAStringSet(human$sequence),
+  genetic_code   = "SGC1",
+  min_orf_length = 150
+)
 
-### Extract gene annotations
+# Circos map of the six-frame ORFeome against the canonical gene annotation
+plot_orfeome_circos(
+  orfs,
+  genome_length = nchar(as.character(human$sequence)),
+  genes         = human$features
+)
 
-```r
-gene_table <- mito_extract_features(mt_list, feature = "CDS")
-```
-
-### Compare gene content across species
-
-```r
-content_summary <- mito_compare_gene_content(mt_list)
-```
-
-### Visualize gene order differences
-
-```r
-mito_plot_gene_order(mt_list)
+# Assess a variant's effect on noncanonical ORFs (and, optionally, RNA structure)
+analyze_snp("m.3206C>T", genetic_codes = c("SGC1", "SGC0"), rna_structure = TRUE)
 ```
 
 ---
 
-## Key Functions (planned core API)
+## Key Functions
 
-### Data Import
+### Data import
 
-* `mito_import_genbank()` — Import annotated mitochondrial genomes
-* `mito_import_fasta()` — Import sequences without annotations
+* `fetch_sequences()` — fetch sequences from NCBI accessions or FASTA
+* `fetch_mito_genbank()` — fetch a mitogenome with parsed GenBank features
 
-### Annotation & Parsing
+### ORF detection & annotation
 
-* `mito_extract_features()` — Extract genes, rRNAs, tRNAs, and control regions
-* `mito_get_gene_sequences()` — Retrieve sequences by gene name
+* `find_orfs()` / `scan_orfs()` — six-frame ORF detection (one or many sequences)
+* `scan_orfeome()` — scan across multiple genetic codes, lengths, and start-codon sets
+* `translate_all_frames()` — translate a genome in all six frames
+* `annotate_genomic_regions()` — label ORFs by canonical gene region
+* `collapse_nested_orfs()` — reduce nested ORFs to one locus per stop
 
-### Comparative Analysis
+### Comparative & conservation analysis
 
-* `mito_compare_gene_content()` — Compare presence/absence across taxa
-* `mito_compare_gene_order()` — Detect rearrangements
-* `mito_sequence_divergence()` — Compute divergence metrics
+* `compare_mitogenomes()` — pairwise mutation table + per-SNP coding/MDP impact
+* `find_conserved_orfs()` / `cluster_conserved_orfs()` — cluster ORFs across genomes
+* `find_clade_conserved_orfs()` — fetch a taxon's mitogenomes → scan → cluster
+* `find_conserved_windows()` — conserved peptide windows from whole-genome translation
+* `calc_dnds()`, `calc_codon_usage()`, `calc_codon_position_rates()` — divergence and codon statistics
+
+### Variant analysis
+
+* `analyze_snp()` — SNP-first: a variant's effect on noncanonical ORFs (and RNA structure)
+* `characterize_transcript_snps()` — transcript-first: survey SNPs within a transcript (MITOMAP for human, NCBI otherwise)
+* `analyze_protein_impacts()` — BLOSUM62 / hydropathy / secondary-structure propensities
+
+### RNA & protein structure
+
+* `fold_rna()`, `pair_partners()`, `longest_stem()`, `circular_lstrand_transcript()` — RNA secondary structure
+* `predict_esmfold()`, `esmfold_plddt()`, `predict_tmhmm()`, `tmhmm_domains()` — protein structure / topology
+
+### Mitochondrial-derived peptides (MDPs)
+
+* `mdp_sequences()`, `score_mdp_similarity()`, `search_mdp_homologs()` — MDP reference set and homology search
 
 ### Visualization
 
-* `mito_plot_gene_order()` — Visualize genome architecture
-* `mito_plot_content_heatmap()` — Compare gene content
-* `mito_plot_divergence()` — Display sequence differences
+* `plot_orfeome_circos()` — six-frame ORFeome circos plot (see example above)
 
 ---
 
