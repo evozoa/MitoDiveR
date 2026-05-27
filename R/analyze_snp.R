@@ -21,8 +21,8 @@
 #'   genome (default `"NC_012920.1"` = rCRS) or a [Biostrings::DNAString]
 #'   / [Biostrings::DNAStringSet] containing a single sequence.
 #' @param genetic_codes Character vector of Biostrings genetic-code
-#'   identifiers to test.  Default `c("SGC1", "SGC0")` — vertebrate
-#'   mitochondrial code and standard code.
+#'   identifiers to test.  Required (no default) — e.g. `c("SGC1", "SGC0")`
+#'   for the vertebrate mitochondrial and standard codes.
 #' @param min_orf_length Integer. Minimum ORF length in nucleotides.
 #'   Default `60L`.
 #' @param start_codons Character vector of recognised start codons.
@@ -93,15 +93,16 @@
 #' @examples
 #' \dontrun{
 #' # The classic D4a longevity variant (Japanese centenarians)
-#' res <- analyze_snp("m.3206C>T")
+#' res <- analyze_snp("m.3206C>T", genetic_codes = c("SGC1", "SGC0"))
 #' res$summary
 #'
 #' # m.T16189C — extends a minus-strand D-loop peptide under mt code
-#' res16189 <- analyze_snp("m.16189T>C")
+#' res16189 <- analyze_snp("m.16189T>C", genetic_codes = c("SGC1", "SGC0"))
 #' res16189$detail[["SGC1"]]$novel
 #'
 #' # RNA structural impact of m.3206C>T (Liu et al. 2007 reported minimal effect)
-#' res_rna <- analyze_snp("m.3206C>T", rna_structure = TRUE)
+#' res_rna <- analyze_snp("m.3206C>T", genetic_codes = c("SGC1", "SGC0"),
+#'                        rna_structure = TRUE)
 #' res_rna$rna$delta_mfe      # small shift in folding free energy
 #' res_rna$rna$bp_distance    # few base pairs gained / lost
 #' }
@@ -110,7 +111,7 @@
 #' @export
 analyze_snp <- function(variant,
                         reference              = "NC_012920.1",
-                        genetic_codes          = c("SGC1", "SGC0"),
+                        genetic_codes          = .stop_no_code("genetic_codes"),
                         min_orf_length         = 60L,
                         start_codons           = c("ATG","GTG","ATA","ATT","ATC"),
                         substitution_tolerance = 3L,

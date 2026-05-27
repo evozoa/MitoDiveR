@@ -6,7 +6,7 @@
 \usage{
 find_orfs(
   sequence,
-  genetic_code = "SGC0",
+  genetic_code = .stop_no_code("genetic_code"),
   start_codons = "ATG",
   min_orf_length = 100L,
   max_orf_length = Inf,
@@ -31,8 +31,8 @@ results are combined into a single \code{data.frame} with a \code{seq_id} column
 identifying the source sequence.}
 
 \item{genetic_code}{Character scalar. Biostrings genetic-code identifier
-passed to \code{\link[Biostrings:GENETIC_CODE]{Biostrings::getGeneticCode()}}. Defaults to \code{"SGC0"}
-(standard vertebrate nuclear code, NCBI table 1). Use \code{"SGC1"} for the
+passed to \code{\link[Biostrings:GENETIC_CODE]{Biostrings::getGeneticCode()}}. Required (no default). Use
+\code{"SGC0"} for the standard code (NCBI table 1) or \code{"SGC1"} for the
 vertebrate mitochondrial code (TGA = Trp; AGA/AGG = stop).}
 
 \item{start_codons}{Character vector of codons that initiate an ORF.

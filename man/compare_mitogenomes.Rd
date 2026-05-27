@@ -9,7 +9,7 @@ compare_mitogenomes(
   seq2,
   name1 = NULL,
   name2 = NULL,
-  genetic_code = "SGC1",
+  genetic_code = .stop_no_code("genetic_code"),
   min_mdp_nt = 60L,
   fold_rrna = TRUE,
   scan_mdps = TRUE,
@@ -30,7 +30,7 @@ from the accession / FASTA header / object name when \code{NULL} (default).}
 \item{name2}{Character scalar.  Display label for \code{seq2}.  Same rules.}
 
 \item{genetic_code}{Character scalar.  Biostrings genetic-code identifier.
-Default \code{"SGC1"} (vertebrate mitochondrial code, NCBI table 2).}
+Required (no default).}
 
 \item{min_mdp_nt}{Integer.  Minimum ORF length in nucleotides for MDP
 scanning.  Default \code{60L}.}

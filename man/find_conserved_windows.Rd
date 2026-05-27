@@ -6,7 +6,7 @@
 \usage{
 find_conserved_windows(
   genomes,
-  genetic_codes = c("SGC0", "SGC1"),
+  genetic_codes = .stop_no_code("genetic_codes"),
   min_pct_identity = 40,
   min_window_aa = 10L,
   min_segment_aa = 30L,
@@ -22,7 +22,7 @@ find_conserved_windows(
 \code{\link[=fetch_mito_genbank]{fetch_mito_genbank()}}.  Must contain at least two elements.}
 
 \item{genetic_codes}{Character vector of genetic-code identifiers passed to
-\code{\link[=translate_all_frames]{translate_all_frames()}}.  Default \code{c("SGC0", "SGC1")}.}
+\code{\link[=translate_all_frames]{translate_all_frames()}}.  Required (no default).}
 
 \item{min_pct_identity}{Numeric.  Minimum percent identity of the local
 alignment to report a window.  Default \code{40}.}

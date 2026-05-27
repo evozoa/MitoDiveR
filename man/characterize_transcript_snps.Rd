@@ -11,7 +11,7 @@ characterize_transcript_snps(
   source = c("auto", "mitomap", "ncbi"),
   min_freq = 0,
   max_genomes = 1000L,
-  genetic_codes = c("SGC1", "SGC0"),
+  genetic_codes = .stop_no_code("genetic_codes"),
   min_orf_length = 45L,
   analysis_flank = 300L,
   rna_structure = TRUE,
@@ -33,7 +33,8 @@ rCRS) or a \link[Biostrings:DNAString-class]{Biostrings::DNAString}.}
 \code{"mitomap"}, or \code{"ncbi"}.}
 
 \item{min_freq}{Numeric.  Only characterize variants at or above this
-population/sample frequency.  Default \code{0} (all).}
+population/sample frequency, expressed as a fraction in \verb{[0, 1]} (MITOMAP
+percentages are converted to fractions internally).  Default \code{0} (all).}
 
 \item{max_genomes}{Integer.  Cap on NCBI mitogenomes sampled (non-human
 path).  Default \code{1000L}.  Set \code{Inf} for the full set (warns if very large).}

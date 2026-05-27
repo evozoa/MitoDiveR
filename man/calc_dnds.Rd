@@ -4,14 +4,14 @@
 \alias{calc_dnds}
 \title{Calculate pairwise dN/dS for Conserved ORF Clusters}
 \usage{
-calc_dnds(orfs, genetic_code = "SGC1")
+calc_dnds(orfs, genetic_code = .stop_no_code("genetic_code"))
 }
 \arguments{
 \item{orfs}{\code{data.frame} from \code{\link[=find_conserved_orfs]{find_conserved_orfs()}}.  Must contain
 \code{cluster_id}, \code{seq_id}, \code{orf_sequence}, and \code{protein_sequence} columns.}
 
 \item{genetic_code}{Character scalar.  Biostrings genetic-code identifier.
-Default \code{"SGC1"} (vertebrate mitochondrial code).  Must match the code
+Required (no default).  Must match the code
 used when scanning ORFs.}
 }
 \value{

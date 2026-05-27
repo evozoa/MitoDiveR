@@ -6,7 +6,7 @@
 \usage{
 scan_orfeome(
   sequences,
-  genetic_codes = c("SGC1", "SGC0"),
+  genetic_codes = .stop_no_code("genetic_codes"),
   min_orf_lengths = 60L,
   start_codon_sets = list(canonical = "ATG", permissive = c("ATG", "GTG", "ATA", "ATT",
     "ATC")),
@@ -21,8 +21,8 @@ sequence string, or \link[Biostrings:XStringSet-class]{Biostrings::DNAStringSet}
 passed to \code{\link[=fetch_sequences]{fetch_sequences()}}.}
 
 \item{genetic_codes}{Character vector of Biostrings genetic-code
-identifiers.  Default \code{c("SGC1", "SGC0")} — vertebrate
-mitochondrial and standard codes.}
+identifiers.  Required (no default) — e.g. \code{c("SGC1", "SGC0")} to test
+both the vertebrate mitochondrial and standard codes.}
 
 \item{min_orf_lengths}{Integer vector of minimum ORF lengths in
 nucleotides.  Default \code{60L} (single value).  Provide multiple

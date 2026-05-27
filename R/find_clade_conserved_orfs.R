@@ -27,8 +27,8 @@
 #' @param min_orf_length Integer.  Passed to [scan_orfs()].  Default
 #'   `60L`.
 #' @param genetic_code Character scalar.  Genetic code identifier
-#'   passed to [scan_orfs()].  Default `"SGC1"` (vertebrate
-#'   mitochondrial).
+#'   passed to [scan_orfs()].  Required (no default) — e.g. `"SGC1"`
+#'   (vertebrate mitochondrial).
 #' @param start_codons Character vector of recognised start codons.
 #'   Default `c("ATG","GTG","ATA","ATT","ATC")`.
 #' @param min_identity Numeric in (0, 100].  Minimum percent amino-acid
@@ -83,7 +83,7 @@ find_clade_conserved_orfs <- function(taxon,
                                       refseq_only    = TRUE,
                                       min_length     = 13000L,
                                       min_orf_length = 60L,
-                                      genetic_code   = "SGC1",
+                                      genetic_code   = .stop_no_code("genetic_code"),
                                       start_codons   = c("ATG","GTG","ATA","ATT","ATC"),
                                       min_identity   = 50,
                                       min_sequences  = 0.5,

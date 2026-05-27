@@ -4,7 +4,10 @@
 \alias{translate_all_frames}
 \title{Translate a Mitochondrial Genome in All Six Reading Frames}
 \usage{
-translate_all_frames(genome_record, genetic_codes = c("SGC0", "SGC1"))
+translate_all_frames(
+  genome_record,
+  genetic_codes = .stop_no_code("genetic_codes")
+)
 }
 \arguments{
 \item{genome_record}{A single genome record — one element of the list
@@ -13,8 +16,8 @@ returned by \code{\link[=fetch_mito_genbank]{fetch_mito_genbank()}}.  Must conta
 
 \item{genetic_codes}{Character vector of Biostrings genetic-code
 identifiers passed to \code{\link[Biostrings:GENETIC_CODE]{Biostrings::getGeneticCode()}}.
-Default \code{c("SGC0", "SGC1")} translates under both the standard
-vertebrate nuclear code and the vertebrate mitochondrial code,
+Required (no default) — e.g. \code{c("SGC0", "SGC1")} to translate under both
+the standard vertebrate nuclear code and the vertebrate mitochondrial code,
 yielding 12 strings total.}
 }
 \value{

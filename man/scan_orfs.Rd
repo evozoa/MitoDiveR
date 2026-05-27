@@ -8,7 +8,7 @@ scan_orfs(
   sequences,
   min_orf_length = 100L,
   max_orf_length = Inf,
-  genetic_code = "SGC1",
+  genetic_code = .stop_no_code("genetic_code"),
   start_codons = c("ATG", "GTG", "ATT", "ATC", "ATA"),
   both_strands = TRUE,
   circular = TRUE,
@@ -29,8 +29,8 @@ Default \code{Inf} (no upper limit).  Set a value to focus on the small ORFs
 characteristic of mitochondrial-derived peptides (e.g. \code{max_orf_length = 900L} for peptides up to 300 aa).}
 
 \item{genetic_code}{Character scalar. Biostrings genetic-code identifier
-passed to \code{\link[=find_orfs]{find_orfs()}}.  Default \code{"SGC1"} (vertebrate mitochondrial
-code).}
+passed to \code{\link[=find_orfs]{find_orfs()}}.  Required (no default) — e.g. \code{"SGC1"}
+(vertebrate mitochondrial) or \code{"SGC0"} (standard).}
 
 \item{start_codons}{Character vector of recognised start codons passed to
 \code{\link[=find_orfs]{find_orfs()}}.  Default \code{c("ATG", "GTG", "ATT", "ATC", "ATA")}.}

@@ -13,8 +13,8 @@
 #'   sequence string, or [Biostrings::DNAStringSet].  Accessions are
 #'   passed to [fetch_sequences()].
 #' @param genetic_codes Character vector of Biostrings genetic-code
-#'   identifiers.  Default `c("SGC1", "SGC0")` — vertebrate
-#'   mitochondrial and standard codes.
+#'   identifiers.  Required (no default) — e.g. `c("SGC1", "SGC0")` to test
+#'   both the vertebrate mitochondrial and standard codes.
 #' @param min_orf_lengths Integer vector of minimum ORF lengths in
 #'   nucleotides.  Default `60L` (single value).  Provide multiple
 #'   values (e.g. `c(60L, 90L, 150L)`) to scan at several thresholds.
@@ -58,7 +58,7 @@
 #' @importFrom methods is
 #' @export
 scan_orfeome <- function(sequences,
-                         genetic_codes      = c("SGC1", "SGC0"),
+                         genetic_codes      = .stop_no_code("genetic_codes"),
                          min_orf_lengths    = 60L,
                          start_codon_sets   = list(
                            canonical  = "ATG",

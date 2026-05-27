@@ -588,7 +588,7 @@
 #'   from the accession / FASTA header / object name when `NULL` (default).
 #' @param name2 Character scalar.  Display label for `seq2`.  Same rules.
 #' @param genetic_code Character scalar.  Biostrings genetic-code identifier.
-#'   Default `"SGC1"` (vertebrate mitochondrial code, NCBI table 2).
+#'   Required (no default).
 #' @param min_mdp_nt Integer.  Minimum ORF length in nucleotides for MDP
 #'   scanning.  Default `60L`.
 #' @param fold_rrna Logical.  Compute RNA secondary-structure delta metrics
@@ -706,7 +706,7 @@ compare_mitogenomes <- function(
     seq2,
     name1        = NULL,
     name2        = NULL,
-    genetic_code = "SGC1",
+    genetic_code = .stop_no_code("genetic_code"),
     min_mdp_nt   = 60L,
     fold_rrna    = TRUE,
     scan_mdps    = TRUE,

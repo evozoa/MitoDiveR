@@ -14,8 +14,8 @@
 #' @param orfs `data.frame` from [scan_orfs()] or [find_conserved_orfs()].
 #'   Must contain an `orf_sequence` column.
 #' @param genetic_code Character scalar.  Biostrings genetic-code identifier
-#'   passed to [Biostrings::getGeneticCode()].  Default `"SGC1"` (vertebrate
-#'   mitochondrial code).  Must match the code used when scanning ORFs.
+#'   passed to [Biostrings::getGeneticCode()].  Required (no default) — e.g.
+#'   `"SGC1"` (vertebrate mitochondrial).  Must match the code used when scanning ORFs.
 #' @param per_sequence Logical.  If `TRUE` (default) and a `seq_id` column is
 #'   present, RSCU is computed separately for each source sequence.  If
 #'   `FALSE`, all ORFs are pooled before counting.
@@ -74,7 +74,7 @@
 #' @importFrom Biostrings getGeneticCode
 #' @export
 calc_codon_usage <- function(orfs,
-                              genetic_code  = "SGC1",
+                              genetic_code  = .stop_no_code("genetic_code"),
                               per_sequence  = TRUE) {
 
   ## ---- validate ---------------------------------------------------------------

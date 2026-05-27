@@ -4,15 +4,19 @@
 \alias{calc_codon_usage}
 \title{Calculate Codon Usage Bias for ORF Sets}
 \usage{
-calc_codon_usage(orfs, genetic_code = "SGC1", per_sequence = TRUE)
+calc_codon_usage(
+  orfs,
+  genetic_code = .stop_no_code("genetic_code"),
+  per_sequence = TRUE
+)
 }
 \arguments{
 \item{orfs}{\code{data.frame} from \code{\link[=scan_orfs]{scan_orfs()}} or \code{\link[=find_conserved_orfs]{find_conserved_orfs()}}.
 Must contain an \code{orf_sequence} column.}
 
 \item{genetic_code}{Character scalar.  Biostrings genetic-code identifier
-passed to \code{\link[Biostrings:GENETIC_CODE]{Biostrings::getGeneticCode()}}.  Default \code{"SGC1"} (vertebrate
-mitochondrial code).  Must match the code used when scanning ORFs.}
+passed to \code{\link[Biostrings:GENETIC_CODE]{Biostrings::getGeneticCode()}}.  Required (no default) — e.g.
+\code{"SGC1"} (vertebrate mitochondrial).  Must match the code used when scanning ORFs.}
 
 \item{per_sequence}{Logical.  If \code{TRUE} (default) and a \code{seq_id} column is
 present, RSCU is computed separately for each source sequence.  If

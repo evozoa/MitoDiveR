@@ -10,7 +10,7 @@ find_clade_conserved_orfs(
   refseq_only = TRUE,
   min_length = 13000L,
   min_orf_length = 60L,
-  genetic_code = "SGC1",
+  genetic_code = .stop_no_code("genetic_code"),
   start_codons = c("ATG", "GTG", "ATA", "ATT", "ATC"),
   min_identity = 50,
   min_sequences = 0.5,
@@ -40,8 +40,8 @@ to be considered a complete mitogenome.  Default \code{13000L}
 \code{60L}.}
 
 \item{genetic_code}{Character scalar.  Genetic code identifier
-passed to \code{\link[=scan_orfs]{scan_orfs()}}.  Default \code{"SGC1"} (vertebrate
-mitochondrial).}
+passed to \code{\link[=scan_orfs]{scan_orfs()}}.  Required (no default) — e.g. \code{"SGC1"}
+(vertebrate mitochondrial).}
 
 \item{start_codons}{Character vector of recognised start codons.
 Default \code{c("ATG","GTG","ATA","ATT","ATC")}.}
