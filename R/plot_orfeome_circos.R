@@ -27,6 +27,9 @@
 #'   when present.  Pass `fetch_mito_genbank(acc)[[acc]]$features`.
 #' @param seq_id Optional value to subset `orfs$seq_id` when multiple sequences
 #'   are present.
+#' @param collapse Logical.  If `TRUE` (default), collapse nested ORFs to one
+#'   locus per stop via [collapse_nested_orfs()] before plotting, so the rings
+#'   show distinct ORFs rather than every internal start codon.
 #' @param file Optional output path ending in `.png` or `.pdf`.  If `NULL` the
 #'   plot is drawn on the current graphics device.
 #' @param title Optional plot title.
@@ -59,6 +62,7 @@ plot_orfeome_circos <- function(orfs,
                                 genome_length,
                                 genes        = NULL,
                                 seq_id       = NULL,
+                                collapse     = TRUE,
                                 file         = NULL,
                                 title        = NULL,
                                 frame_colors = NULL,
@@ -71,6 +75,7 @@ plot_orfeome_circos <- function(orfs,
     stop("'orfs' must have columns 'frame', 'start', 'end'.", call. = FALSE)
   if (!is.null(seq_id) && "seq_id" %in% names(orfs))
     orfs <- orfs[orfs$seq_id == seq_id, , drop = FALSE]
+  if (isTRUE(collapse)) orfs <- collapse_nested_orfs(orfs)
   genome_length <- as.numeric(genome_length)
 
   if (is.null(frame_colors))

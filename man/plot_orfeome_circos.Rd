@@ -9,6 +9,7 @@ plot_orfeome_circos(
   genome_length,
   genes = NULL,
   seq_id = NULL,
+  collapse = TRUE,
   file = NULL,
   title = NULL,
   frame_colors = NULL,
@@ -31,6 +32,10 @@ when present.  Pass \code{fetch_mito_genbank(acc)[[acc]]$features}.}
 
 \item{seq_id}{Optional value to subset \code{orfs$seq_id} when multiple sequences
 are present.}
+
+\item{collapse}{Logical.  If \code{TRUE} (default), collapse nested ORFs to one
+locus per stop via \code{\link[=collapse_nested_orfs]{collapse_nested_orfs()}} before plotting, so the rings
+show distinct ORFs rather than every internal start codon.}
 
 \item{file}{Optional output path ending in \code{.png} or \code{.pdf}.  If \code{NULL} the
 plot is drawn on the current graphics device.}
