@@ -23,6 +23,17 @@ The package is designed for researchers in evolutionary biology, genomics, fishe
 
 ---
 
+## Example: six-frame ORFeome map
+
+`plot_orfeome_circos()` places every open reading frame across all six reading
+frames (outer rings, `+1/+2/+3` then `-1/-2/-3`) against the canonical gene
+annotation and nucleotide coordinates (central ring). Human mitogenome
+(rCRS, `NC_012920.1`), nested ORFs collapsed to distinct loci:
+
+![Human rCRS ORFeome — six-frame circos plot](man/figures/orfeome_circos_human.png)
+
+---
+
 ## Installation
 
 MitoDiveR is currently available from GitHub.
