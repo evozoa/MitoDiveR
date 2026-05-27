@@ -17,11 +17,15 @@ LazyData: true
 Depends: 
     R (>= 4.2)
 Imports:
+    BiocGenerics,
     Biostrings,
+    httr2,
     igraph,
     methods,
     pwalign,
-    rentrez
+    rentrez,
+    stats,
+    utils
 Suggests:
     ggplot2,
     testthat (>= 3.0.0),
