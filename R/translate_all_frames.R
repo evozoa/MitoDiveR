@@ -15,8 +15,8 @@
 #'   (a [Biostrings::DNAString]) and `$accession`.
 #' @param genetic_codes Character vector of Biostrings genetic-code
 #'   identifiers passed to [Biostrings::getGeneticCode()].
-#'   Default `c("SGC0", "SGC1")` translates under both the standard
-#'   vertebrate nuclear code and the vertebrate mitochondrial code,
+#'   Required (no default) — e.g. `c("SGC0", "SGC1")` to translate under both
+#'   the standard vertebrate nuclear code and the vertebrate mitochondrial code,
 #'   yielding 12 strings total.
 #'
 #' @return A named list of [Biostrings::AAString] objects.  Names follow the
@@ -48,7 +48,7 @@
 #' @importFrom methods is
 #' @export
 translate_all_frames <- function(genome_record,
-                                  genetic_codes = c("SGC0", "SGC1")) {
+                                  genetic_codes = .stop_no_code("genetic_codes")) {
 
   ## ---- input checks --------------------------------------------------------
   if (!is.list(genome_record) || !"sequence" %in% names(genome_record))

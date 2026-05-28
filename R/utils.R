@@ -93,3 +93,12 @@
          call. = FALSE)
   list(seq_1 = Biostrings::DNAString(seq_clean))
 }
+
+# Used as a parameter default to FORCE callers to choose a genetic code:
+# the expression errors (with guidance) only when the argument is omitted.
+.stop_no_code <- function(arg = "genetic_code") {
+  stop("'", arg, "' must be specified (no default, by design for a ",
+       "mitochondrial package). Choose a Biostrings code id — e.g. ",
+       "\"SGC1\" (vertebrate mitochondrial: TGA=Trp, AGA/AGG=stop) or ",
+       "\"SGC0\" (standard). See Biostrings::getGeneticCode().", call. = FALSE)
+}

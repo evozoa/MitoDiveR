@@ -28,8 +28,8 @@
 #'   results are combined into a single `data.frame` with a `seq_id` column
 #'   identifying the source sequence.
 #' @param genetic_code Character scalar. Biostrings genetic-code identifier
-#'   passed to [Biostrings::getGeneticCode()]. Defaults to `"SGC0"`
-#'   (standard vertebrate nuclear code, NCBI table 1). Use `"SGC1"` for the
+#'   passed to [Biostrings::getGeneticCode()]. Required (no default). Use
+#'   `"SGC0"` for the standard code (NCBI table 1) or `"SGC1"` for the
 #'   vertebrate mitochondrial code (TGA = Trp; AGA/AGG = stop).
 #' @param start_codons Character vector of codons that initiate an ORF.
 #'   Defaults to `"ATG"`. For vertebrate mitochondrial genomes you may wish
@@ -118,7 +118,7 @@
 #' @importFrom methods is
 #' @export
 find_orfs <- function(sequence,
-                      genetic_code       = "SGC0",
+                      genetic_code       = .stop_no_code("genetic_code"),
                       start_codons       = "ATG",
                       min_orf_length     = 100L,
                       max_orf_length     = Inf,

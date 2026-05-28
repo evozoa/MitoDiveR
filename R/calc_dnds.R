@@ -14,7 +14,7 @@
 #' @param orfs `data.frame` from [find_conserved_orfs()].  Must contain
 #'   `cluster_id`, `seq_id`, `orf_sequence`, and `protein_sequence` columns.
 #' @param genetic_code Character scalar.  Biostrings genetic-code identifier.
-#'   Default `"SGC1"` (vertebrate mitochondrial code).  Must match the code
+#'   Required (no default).  Must match the code
 #'   used when scanning ORFs.
 #'
 #' @return A `data.frame` with one row per sequence pair per cluster:
@@ -86,7 +86,7 @@
 #' @importFrom pwalign pairwiseAlignment pattern subject
 #' @importFrom utils combn
 #' @export
-calc_dnds <- function(orfs, genetic_code = "SGC1") {
+calc_dnds <- function(orfs, genetic_code = .stop_no_code("genetic_code")) {
 
   ## ---- validate ---------------------------------------------------------------
   if (!is.data.frame(orfs))

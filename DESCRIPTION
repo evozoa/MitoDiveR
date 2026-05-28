@@ -17,18 +17,23 @@ LazyData: true
 Depends: 
     R (>= 4.2)
 Imports:
+    BiocGenerics,
     Biostrings,
+    httr2,
     igraph,
     methods,
     pwalign,
-    rentrez
+    rentrez,
+    stats,
+    utils
 Suggests:
+    circlize,
     ggplot2,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 URL: https://github.com/evozoa/MitoDiveR
 BugReports: https://github.com/evozoa/MitoDiveR/issues
