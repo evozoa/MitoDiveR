@@ -114,20 +114,24 @@ test_that("include_stop_codon = FALSE shortens ORF by 3 nt", {
 
 # ---- vertebrate mitochondrial code: TGA is not a stop -----------------------
 test_that("TGA is not a stop codon under vertebrate mito code (SGC1)", {
-  # ATG + TGA (Trp in mito) + AAA + TAA
+  # Frame +1 codons: ATG TGA AAA TAA
+  #   SGC1 (mito):     TGA = Trp  -> reads through to TAA -> MWK* (12 nt)
+  #   SGC0 (standard): TGA = stop -> terminates at TGA    -> M*   (6 nt)
+  # The threshold must stay below the short standard ORF (6 nt) so it survives
+  # to be compared; otherwise it is filtered out and the comparison is vacuous.
   seq_mito <- paste0("ATGTGAAAATAA", strrep("C", 30))
 
   orfs_mito <- find_orfs(seq_mito,
                           genetic_code   = "SGC1",
                           start_codons   = "ATG",
-                          min_orf_length = 9,
+                          min_orf_length = 3,
                           both_strands   = FALSE,
                           circular       = FALSE)
 
   orfs_std  <- find_orfs(seq_mito,
                           genetic_code   = "SGC0",
                           start_codons   = "ATG",
-                          min_orf_length = 9,
+                          min_orf_length = 3,
                           both_strands   = FALSE,
                           circular       = FALSE)
 
@@ -135,7 +139,12 @@ test_that("TGA is not a stop codon under vertebrate mito code (SGC1)", {
   mito_orf <- orfs_mito[orfs_mito$start == 1L, ]
   std_orf  <- orfs_std[orfs_std$start  == 1L, ]
 
-  expect_true(nrow(mito_orf) >= 1L)
+  # Both ORFs must be present (guard against the threshold silently dropping
+  # the standard-code ORF, which previously made this comparison NA).
+  expect_equal(nrow(mito_orf), 1L)
+  expect_equal(nrow(std_orf),  1L)
+  expect_equal(mito_orf$length_nt[1L], 12L)
+  expect_equal(std_orf$length_nt[1L],   6L)
   expect_true(mito_orf$length_nt[1L] > std_orf$length_nt[1L])
 })
 
