@@ -1,0 +1,380 @@
+---
+title: "MitoDiveR: A User Manual for Comparative Mitochondrial Genomics"
+author: "Michael W. Sandel"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{MitoDiveR: A User Manual for Comparative Mitochondrial Genomics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>"
+)
+```
+
+# Overview
+
+**MitoDiveR** is a toolkit for comparative mitochondrial genomics in R. It
+covers the full arc of a mitogenome study:
+
+1. **Fetch** annotated mitogenomes and gene features from NCBI.
+2. **Discover** open reading frames (ORFs) — canonical genes and the
+   noncanonical / mitochondrial-derived-peptide (MDP) ORFs that hide in
+   alternate frames and on the light strand.
+3. **Compare** ORFeomes across genomes and across whole clades to find
+   conserved coding potential.
+4. **Analyze** sequence variants (SNPs) for their protein, ORF, and RNA-structure
+   consequences.
+5. **Quantify** divergence with codon usage and dN/dS.
+6. **Search** for MDP homologs and characterize peptides with structure
+   (ESMFold) and topology (DeepTMHMM) predictions.
+7. **Visualize** an entire six-frame ORFeome as a circos plot.
+
+This manual walks through each stage. Most examples that touch the network
+(NCBI) or external tools (ViennaRNA `RNAfold`, the ESMFold REST API, the
+`biolib`/DeepTMHMM CLI) are shown but **not executed** here, so they are marked
+`eval = FALSE`. A small self-contained example at the end runs end-to-end with
+no network access.
+
+```{r install, eval = FALSE}
+# From GitHub (development version)
+# install.packages("remotes")
+remotes::install_github("evozoa/MitoDiveR")
+
+library(MitoDiveR)
+```
+
+---
+
+# The one rule you must know: `genetic_code` is always explicit
+
+Mitochondrial genomes do **not** use the standard genetic code. Every
+ORF/codon/variant function in MitoDiveR therefore **requires** you to state the
+code explicitly — there is no default, on purpose. Omitting it raises an
+informative error rather than silently guessing.
+
+The two codes you will use:
+
+| Code     | Name                             | Use for                                                                 |
+|----------|----------------------------------|-------------------------------------------------------------------------|
+| `"SGC1"` | Vertebrate mitochondrial         | The 13 canonical mtDNA protein genes (TGA = Trp; AGA/AGG = stop)         |
+| `"SGC0"` | Standard                         | MDPs and other noncanonical ORFs translated by the cytoplasmic ribosome |
+
+> **Rule of thumb.** Canonical mito-proteins → `"SGC1"`. MDPs / antisense /
+> alt-frame ORFs that would be translated in the cytoplasm → `"SGC0"`. When in
+> doubt, scan **both** and compare. Passing the wrong code is the single most
+> common way to get biologically wrong results, which is exactly why the
+> argument has no default.
+
+(These are `Biostrings` genetic-code identifiers; see
+`Biostrings::GENETIC_CODE_TABLE`.)
+
+---
+
+# 1. Fetching sequences and annotations
+
+`fetch_sequences()` resolves input from NCBI accessions, a FASTA file, or raw
+FASTA text into a `Biostrings::DNAStringSet`.
+
+```{r fetch-seq, eval = FALSE}
+# Human reference mitogenome (rCRS) plus chimpanzee, from NCBI
+seqs <- fetch_sequences(accessions = c("NC_012920.1", "NC_001643.1"))
+
+# ...or from local FASTA
+seqs <- fetch_sequences(fasta_file = "my_mitogenomes.fasta")
+```
+
+`fetch_mito_genbank()` additionally parses the GenBank **feature table**, which
+you need for gene-aware plots and conserved-window analyses.
+
+```{r fetch-gb, eval = FALSE}
+gb       <- fetch_mito_genbank("NC_012920.1")
+features <- gb[["NC_012920.1"]]$features   # data.frame of CDS / rRNA / tRNA / D-loop
+```
+
+All ORF/SNP functions also accept accessions, FASTA paths, or raw sequence text
+directly (via the internal input resolver), so you can usually skip the explicit
+fetch step.
+
+---
+
+# 2. ORF discovery
+
+## `find_orfs()` — a single sequence
+
+```{r find-orfs, eval = FALSE}
+orfs <- find_orfs(
+  "NC_012920.1",
+  genetic_code   = "SGC1",   # canonical vertebrate-mito scan
+  start_codons   = "ATG",
+  min_orf_length = 100L,
+  both_strands   = TRUE,
+  circular       = TRUE      # mtDNA is circular: ORFs may wrap the origin
+)
+```
+
+## `scan_orfs()` — many sequences at once
+
+`scan_orfs()` takes a `DNAStringSet` (or named character vector) and returns one
+tidy table with a `seq_id` column. Its default `start_codons` include the
+alternative mitochondrial starts (`GTG`, `ATT`, `ATC`, `ATA`).
+
+```{r scan-orfs, eval = FALSE}
+orf_table <- scan_orfs(
+  seqs,
+  genetic_code   = "SGC1",
+  min_orf_length = 150L
+)
+```
+
+### Nested-ORF inflation — and `collapse_nested_orfs()`
+
+`find_orfs()`/`scan_orfs()` report **every** ATG→stop as its own ORF, so one
+long stop-free stretch with many internal starts yields many entries that share
+a single stop. Raw per-frame ORF *counts* are therefore not a clean metric.
+Collapse to the longest ORF per stop before counting or plotting:
+
+```{r collapse, eval = FALSE}
+loci <- collapse_nested_orfs(orf_table)   # keeps the longest ORF per (frame, stop)
+# e.g. human rCRS: ~505 raw ORFs -> 26 distinct loci
+```
+
+> **Minus-strand coordinates.** The table enforces genomic `start <= end`, so on
+> the `-` strand the **stop** is in `start` and the **ATG** is in `end`. This is
+> the genomic convention, not a bug.
+
+## `scan_orfeome()` — sweep across parameters
+
+To explore sensitivity to code, length cutoff, and start-codon set in one call:
+
+```{r scan-orfeome, eval = FALSE}
+sweep <- scan_orfeome(
+  seqs,
+  genetic_codes     = c("SGC1", "SGC0"),
+  min_orf_lengths   = c(45L, 100L),
+  start_codon_sets  = list("ATG", c("ATG", "GTG", "ATT"))
+)
+# Output is tagged with genetic_code / min_orf_length / start_codon_set columns
+```
+
+---
+
+# 3. Conserved ORFs across genomes and clades
+
+`find_conserved_orfs()` clusters ORFs from a `scan_orfs()` table by amino-acid
+identity, surfacing coding potential shared across genomes.
+
+```{r conserved, eval = FALSE}
+conserved <- find_conserved_orfs(
+  orf_table,
+  min_identity  = 50,    # percent aa identity to cluster
+  min_sequences = 0.5    # present in >= 50% of genomes
+)
+```
+
+`find_clade_conserved_orfs()` does the whole pipeline in one call — NCBI search
+for RefSeq mitogenomes in a taxon, fetch, scan, and cluster:
+
+```{r clade, eval = FALSE}
+res <- find_clade_conserved_orfs(
+  taxon         = "Sebastes",   # rockfishes
+  genetic_codes = "SGC1",
+  max_genomes   = 20,
+  refseq_only   = TRUE
+)
+res$conserved   # conserved-ORF clusters across the clade
+```
+
+Related helpers: `find_conserved_windows()` (conserved nucleotide windows),
+`cluster_conserved_orfs()`, `compare_clade_orfeomes()`, and
+`compare_mitogenomes()` (pairwise mutation table with per-SNP mRNA/MDP impact).
+
+---
+
+# 4. Variant (SNP) analysis
+
+Two complementary entry points:
+
+## `analyze_snp()` — variant-first
+
+Give it a single substitution and it reports the consequences for noncanonical
+ORFs (and, optionally, RNA structure).
+
+```{r analyze-snp, eval = FALSE}
+res <- analyze_snp(
+  "m.1382A>C",                      # also accepts "A1382C" or list(pos, ref, alt)
+  reference     = "NC_012920.1",    # defaults to human rCRS
+  genetic_codes = "SGC0",           # MDP scan uses the standard code
+  rna_structure = TRUE,             # opt-in: folds ref vs mutant window (needs RNAfold)
+  rna_flank     = 100
+)
+res$summary   # per-code table: disrupted / novel / lost / gained ORFs
+res$rna       # delta_mfe, base-pair distance, longest-stem change, structures
+```
+
+## `characterize_transcript_snps()` — transcript-first
+
+Enumerate the SNPs observed across a transcript/region and characterize each.
+For human, variants come from **MITOMAP**; for other taxa, from NCBI sampling.
+
+```{r characterize, eval = FALSE}
+mots_c <- characterize_transcript_snps(
+  region        = "MOTS-c",          # preset, or list(start, end, strand)
+  taxon         = "Homo sapiens",
+  genetic_codes = "SGC0",
+  rna_structure = TRUE
+)
+mots_c$variants   # pos/ref/alt/freq/consequence/n_disrupted/delta_mfe/...
+```
+
+Protein-level scoring of an amino-acid change (BLOSUM62, Chou–Fasman,
+Kyte–Doolittle) is available via `analyze_protein_impacts()`.
+
+---
+
+# 5. Divergence: codon usage and dN/dS
+
+```{r divergence, eval = FALSE}
+usage <- calc_codon_usage(orf_table, genetic_code = "SGC1")
+
+rates <- calc_dnds(orf_table, genetic_code = "SGC1")   # Nei-Gojobori + Jukes-Cantor
+
+pos_rates <- calc_codon_position_rates(orf_table, genetic_code = "SGC1")
+```
+
+---
+
+# 6. Mitochondrial-derived peptides (MDPs)
+
+```{r mdp, eval = FALSE}
+# Reference MDP sequences (humanin, MOTS-c, SHLP1-6, ...)
+peptides <- mdp_sequences()
+
+# Score similarity of a candidate ORF to known MDPs
+score_mdp_similarity(candidate_aa = "MRWQEMGYIFYPRKLR", peptides = peptides)
+
+# Search for homologs of an MDP across sequences
+hits <- search_mdp_homologs(query = peptides["MOTS-c"], subjects = seqs)
+```
+
+> **Heads-up.** `mdp_sequences()` carries known errors for SHLP1–6; for those,
+> prefer canonical UniProt sequences. SHLP3 in particular exists in both the
+> human-derived `MLGY...` form and the ancestral `MQKVR...` form.
+
+---
+
+# 7. Structure and topology predictions
+
+These call external services and are inherently optional / network-bound.
+
+```{r struct, eval = FALSE}
+# ESMFold structure + per-residue confidence (REST API)
+pdb   <- predict_esmfold("MAPRGFSCLLLLTSEIDLPVKRRA")
+plddt <- esmfold_plddt(pdb)
+
+# Transmembrane topology via DeepTMHMM (biolib CLI)
+topo    <- predict_tmhmm("MAPRGFSCLLLLTSEIDLPVKRRA")
+domains <- tmhmm_domains(topo)
+```
+
+---
+
+# 8. RNA secondary structure
+
+Wraps ViennaRNA `RNAfold` (must be on `PATH`).
+
+```{r rna, eval = FALSE}
+fold <- fold_rna("GGGAAACCCUUUGGGAAACCC")
+fold$mfe          # minimum free energy
+fold$structure    # dot-bracket
+
+pairs <- pair_partners(fold$structure)   # base-pair partner vector
+longest_stem(fold$structure)             # longest contiguous helix
+```
+
+---
+
+# 9. Visualizing the ORFeome: circos
+
+`plot_orfeome_circos()` draws all six reading frames as concentric rings around
+a central ring of nucleotide coordinates and canonical gene features. Pass the
+GenBank features for gene labels; nested ORFs are collapsed by default so the
+rings show distinct loci.
+
+```{r circos, eval = FALSE}
+gb    <- fetch_mito_genbank("NC_012920.1")
+genes <- gb[["NC_012920.1"]]$features
+
+plot_orfeome_circos(
+  orfs          = orf_table[orf_table$seq_id == "NC_012920.1", ],
+  genome_length = 16569,
+  genes         = genes,
+  seq_id        = "NC_012920.1",
+  title         = "Human mtDNA ORFeome",
+  file          = "human_orfeome_circos.png"   # omit to draw to the active device
+)
+```
+
+Requires the `circlize` package (in `Suggests`).
+
+---
+
+# 10. Saving results
+
+`save_results()` writes analysis tables/objects to disk in a consistent layout
+so workflows are reproducible.
+
+```{r save, eval = FALSE}
+save_results(orf_table, file = "orfs.csv")
+```
+
+---
+
+# A self-contained example
+
+This runs without any network access or external tools — a tiny synthetic
+sequence with one obvious forward ORF.
+
+```{r selfcontained}
+library(MitoDiveR)
+
+# ATG ... (sense codons) ... TAA, padded so the ORF clears the length filter
+seq <- paste0(
+  "ATG",
+  paste(rep("AAACTTGGCATCGTA", 4), collapse = ""),  # filler sense codons
+  "TAA"
+)
+
+orfs <- find_orfs(
+  seq,
+  genetic_code   = "SGC0",   # standard code for this toy example
+  start_codons   = "ATG",
+  min_orf_length = 30L,
+  both_strands   = FALSE,
+  circular       = FALSE
+)
+
+orfs[, c("start", "end", "strand", "length_nt")]
+```
+
+---
+
+# Where to go next
+
+- Per-function help: `?find_orfs`, `?analyze_snp`, `?find_clade_conserved_orfs`, …
+- Worked case studies backing the *Geromedicine* manuscript live under
+  `analyses/mitogenome_comparison/` in the source repository (human, primate,
+  cyprinid, killifish, rockfish, rodent, sculpin, urchin, xenopus, midichloria,
+  and the vertebrate 16S frameshift).
+- Report issues at <https://github.com/evozoa/MitoDiveR/issues>.
+
+```{r sessioninfo}
+sessionInfo()
+```
