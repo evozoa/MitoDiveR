@@ -192,9 +192,14 @@ res <- find_clade_conserved_orfs(
 res$conserved   # conserved-ORF clusters across the clade
 ```
 
+To suppress spurious links from short high-identity motifs, add a coverage
+gate: `find_conserved_orfs(orfs, min_coverage = 0.5)` requires each alignment
+to span a minimum fraction of the shorter protein. (This subsumes the former
+`cluster_conserved_orfs()`, now a deprecated shim — see `?find_conserved_orfs`.)
+
 Related helpers: `find_conserved_windows()` (conserved nucleotide windows),
-`cluster_conserved_orfs()`, `compare_clade_orfeomes()`, and
-`compare_mitogenomes()` (pairwise mutation table with per-SNP mRNA/MDP impact).
+`compare_clade_orfeomes()`, and `compare_mitogenomes()` (pairwise mutation
+table with per-SNP mRNA/MDP impact).
 
 ---
 

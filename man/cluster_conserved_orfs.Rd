@@ -2,7 +2,7 @@
 % Please edit documentation in R/cluster_conserved_orfs.R
 \name{cluster_conserved_orfs}
 \alias{cluster_conserved_orfs}
-\title{Cluster ORFs Conserved Across Species}
+\title{Cluster ORFs Conserved Across Species (Deprecated)}
 \usage{
 cluster_conserved_orfs(
   orfs,
@@ -15,21 +15,17 @@ cluster_conserved_orfs(
 )
 }
 \arguments{
-\item{orfs}{A \code{data.frame} of ORFs — typically the combined output of
-\code{\link[=find_orfs]{find_orfs()}} run on two or more genomes, with a \code{seq_id} column added
-to identify the source genome.  Must contain \code{seq_id} and
-\code{protein_sequence} columns.}
+\item{orfs}{A \code{data.frame} of ORFs with \code{seq_id} and \code{protein_sequence}
+columns (typically the combined output of \code{\link[=scan_orfs]{scan_orfs()}} across genomes).}
 
-\item{min_pct_identity}{Numeric.  Minimum percent identity of the local
-alignment (as returned by \code{\link[pwalign:pid]{pwalign::pid()}}) required to connect two
-ORFs.  Default \code{40}.}
+\item{min_pct_identity}{Numeric.  Minimum percent identity (\code{PID1}) to
+connect two ORFs.  Forwarded as \code{min_identity}.  Default \code{40}.}
 
-\item{min_coverage}{Numeric in [0, 1].  Minimum fraction of the
-\emph{shorter} protein that must be covered by the alignment (gap characters
-excluded).  Default \code{0.5} (50 \%).}
+\item{min_coverage}{Numeric in [0, 1].  Minimum fraction of the \emph{shorter}
+protein covered by the alignment.  Default \code{0.5}.}
 
-\item{substitution_matrix}{Character.  Substitution matrix name passed to
-\code{\link[pwalign:pairwiseAlignment]{pwalign::pairwiseAlignment()}}.  Default \code{"BLOSUM62"}.}
+\item{substitution_matrix}{Character.  Substitution matrix name.  Default
+\code{"BLOSUM62"}.}
 
 \item{gap_opening}{Numeric.  Gap-opening penalty.  Default \code{10}.}
 
@@ -38,53 +34,47 @@ excluded).  Default \code{0.5} (50 \%).}
 \item{verbose}{Logical.  Print progress?  Default \code{TRUE}.}
 }
 \value{
-The input \code{orfs} data.frame, filtered to conserved ORFs only,
-with three additional columns:
-\describe{
-\item{\code{cluster_id}}{Integer cluster identifier.  Clusters are numbered
-in order of their first appearance (sorted by \code{start}, then \code{seq_id}).}
-\item{\code{n_sequences}}{Number of distinct \code{seq_id} values in the cluster.}
-\item{\code{cluster_size}}{Total number of ORF rows in the cluster.}
-}
+The same conserved-ORF table returned by \code{\link[=find_conserved_orfs]{find_conserved_orfs()}}:
+the input rows that belong to a conserved cluster, with \code{cluster_id},
+\code{n_sequences}, and \code{cluster_size} columns appended.  (Cluster \emph{numbering}
+may differ from older releases, but the set of conserved ORFs is the
+same; \code{cluster_id} has always been an arbitrary within-call label.)
 }
 \description{
-Identifies ORFs that are shared across two or more mitochondrial genomes
-by performing all-vs-all pairwise local alignment of protein sequences
-from different species.  ORFs connected by sufficient similarity are
-grouped into clusters; only clusters represented in at least two distinct
-genomes (identified by \code{seq_id}) are retained as \emph{conserved}.
-}
-\details{
-\subsection{Algorithm}{
-\enumerate{
-\item Strip trailing stop-codon asterisks from \code{protein_sequence}.
-\item For every pair of ORFs from \emph{different} \code{seq_id} values, compute a
-Smith–Waterman local alignment.
-\item Retain pairs meeting both \code{min_pct_identity} and \code{min_coverage}
-thresholds.
-\item Build an undirected graph; nodes = ORFs, edges = retained pairs.
-\item Extract connected components; discard singleton or single-species
-components.
-\item Return annotated surviving ORFs sorted by \code{cluster_id}, \code{seq_id},
-\code{start}.
-}
+\strong{Deprecated.}  \code{cluster_conserved_orfs()} has been merged into
+\code{\link[=find_conserved_orfs]{find_conserved_orfs()}}, which now supports coverage gating, a configurable
+percent-identity metric, and configurable alignment parameters.  This
+function is retained as a thin wrapper so existing scripts keep working; it
+simply forwards to \code{\link[=find_conserved_orfs]{find_conserved_orfs()}} with the equivalent settings and
+will be removed in a future release.
+
+The mapping is:
+\preformatted{
+cluster_conserved_orfs(orfs, min_pct_identity = X, min_coverage = Y, ...)
+  ->  find_conserved_orfs(orfs,
+                          min_identity        = X,
+                          min_coverage        = Y,
+                          min_genomes         = 2,      # "shared by >= 2 genomes"
+                          identity_metric     = "PID1", # cluster_*'s metric
+                          substitution_matrix = ...,
+                          gap_opening         = ...,
+                          gap_extension       = ...)
 }
 }
 \examples{
 \dontrun{
-library(Biostrings)
+orfs_all <- scan_orfs(seqs, genetic_code = "SGC1", min_orf_length = 75)
 
-genomes <- fetch_mito_genbank(c("NC_002333.2", "NC_028087.1"))
-
-# Find ORFs in each genome and tag with seq_id
-orfs_list <- lapply(names(genomes), function(acc) {
-  df        <- find_orfs(genomes[[acc]]$sequence, min_orf_length = 75L)
-  df$seq_id <- acc
-  df
-})
-orfs_all <- do.call(rbind, orfs_list)
-
+# Old (deprecated):
 conserved <- cluster_conserved_orfs(orfs_all)
+
+# New equivalent:
+conserved <- find_conserved_orfs(orfs_all, min_identity = 40,
+                                 min_coverage = 0.5, min_genomes = 2,
+                                 identity_metric = "PID1", gap_extension = 4)
 }
 
+}
+\seealso{
+\code{\link[=find_conserved_orfs]{find_conserved_orfs()}}, which supersedes this function.
 }

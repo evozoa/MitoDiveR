@@ -20,7 +20,6 @@ Imports:
     BiocGenerics,
     Biostrings,
     httr2,
-    igraph,
     methods,
     pwalign,
     rentrez,

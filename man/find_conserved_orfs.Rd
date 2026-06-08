@@ -8,7 +8,14 @@ find_conserved_orfs(
   orfs,
   min_identity = 50,
   min_sequences = 0.5,
-  alignment_type = "local"
+  alignment_type = "local",
+  min_coverage = NULL,
+  min_genomes = NULL,
+  identity_metric = "PID3",
+  substitution_matrix = "BLOSUM62",
+  gap_opening = 10,
+  gap_extension = 0.5,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -16,20 +23,46 @@ find_conserved_orfs(
 \code{seq_id} column and a \code{protein_sequence} column.}
 
 \item{min_identity}{Numeric scalar (0–100).  Minimum percent amino acid
-identity for two ORFs to be considered homologous.  Computed as matches /
-alignment length (equivalent to \code{PID3} in Biostrings).  Default \code{50}.}
+identity for two ORFs to be considered homologous.  The metric is
+controlled by \code{identity_metric} (default \code{PID3} = matches / alignment
+length).  Default \code{50}.}
 
 \item{min_sequences}{Numeric scalar (0–1).  Minimum \strong{fraction} of the
 input sequences in which a cluster must be represented.  The actual count
 threshold is \code{ceiling(min_sequences * n_sequences)}, so \code{0.5} requires
 presence in at least half of the supplied sequences (rounded up).
-Default \code{0.5}.  Must be in (0, 1].}
+Default \code{0.5}.  Must be in (0, 1].  Ignored when \code{min_genomes} is given.}
 
 \item{alignment_type}{Character scalar.  Alignment type passed to
 \code{\link[pwalign:pairwiseAlignment]{pwalign::pairwiseAlignment()}}: \code{"local"} (Smith-Waterman, default)
 or \code{"global"} (Needleman-Wunsch).  Local alignment is recommended for
 ORF sets with variable lengths, as it correctly handles ORFs that are
 nested or partially overlapping in sequence space.}
+
+\item{min_coverage}{Numeric in [0, 1] or \code{NULL}.  When supplied, a second
+gate is applied to every pair: the alignment must cover at least this
+fraction of the \emph{shorter} protein (non-gap aligned residues / shorter
+length).  \code{NULL} (default) disables coverage filtering — identity alone
+decides homology, preserving the historical behaviour.}
+
+\item{min_genomes}{Integer or \code{NULL}.  Absolute minimum number of distinct
+\code{seq_id} values a cluster must span.  When supplied it \strong{overrides}
+\code{min_sequences} (e.g. \code{min_genomes = 2} keeps any cluster shared by at
+least two genomes, regardless of how many were supplied).  Default \code{NULL}.}
+
+\item{identity_metric}{Character scalar.  Percent-identity definition passed
+to \code{\link[pwalign:pid]{pwalign::pid()}}: one of \code{"PID1"}, \code{"PID2"}, \code{"PID3"} (default), or
+\code{"PID4"}.  \code{PID3} (matches / alignment length) is the most conservative
+for local alignments.}
+
+\item{substitution_matrix}{Character scalar.  Substitution matrix name
+passed to \code{\link[pwalign:pairwiseAlignment]{pwalign::pairwiseAlignment()}}.  Default \code{"BLOSUM62"}.}
+
+\item{gap_opening}{Numeric.  Gap-opening penalty.  Default \code{10}.}
+
+\item{gap_extension}{Numeric.  Gap-extension penalty.  Default \code{0.5}.}
+
+\item{verbose}{Logical.  Emit progress messages?  Default \code{TRUE}.}
 }
 \value{
 A subset of \code{orfs} containing only ORFs that belong to a conserved
@@ -57,11 +90,13 @@ functional conservation across divergent mitogenomes.
 \subsection{Algorithm}{
 
 Pairwise amino acid alignments are computed only between ORFs from
-\strong{different} sequences, avoiding self-comparisons.  Clusters are formed
-using union-find (disjoint-set union): two ORFs are merged into the same
-cluster whenever their pairwise identity meets \code{min_identity}.  This means
-transitivity applies — if A ~ B and B ~ C, all three are clustered together
-even if A and C do not directly meet the threshold.
+\strong{different} sequences, avoiding self-comparisons.  A pair is treated as
+homologous when it meets \code{min_identity} (and, when \code{min_coverage} is set,
+the coverage gate as well).  Clusters are formed using union-find
+(disjoint-set union): two ORFs are merged into the same cluster whenever
+they form a homologous pair.  This means transitivity applies — if A ~ B
+and B ~ C, all three are clustered together even if A and C do not directly
+meet the threshold.
 }
 
 \subsection{Computational cost}{
@@ -71,17 +106,22 @@ sets, narrow the search first with tight \code{min_orf_length} / \code{max_orf_l
 filters in \code{\link[=scan_orfs]{scan_orfs()}}.
 }
 
-\subsection{Identity metric}{
+\subsection{Identity and coverage}{
 
-\code{PID3} (matches / alignment length, including gap columns) is used as it is
-the most conservative metric for local alignments and avoids artificially
-high identities from very short high-similarity regions.
+\code{identity_metric} selects the percent-identity definition; \code{PID3}
+(matches / alignment length, including gap columns) is the default as it is
+the most conservative for local alignments and avoids artificially high
+identities from very short high-similarity regions.  Supplying \code{min_coverage}
+additionally requires the alignment to span a minimum fraction of the
+shorter protein, which suppresses spurious links between a short ORF and an
+unrelated longer one.
 }
 }
 \examples{
 \dontrun{
 seqs <- fetch_sequences(c("NC_012920.1", "NC_001643.1", "NC_011137.1"))
-orfs <- scan_orfs(seqs, min_orf_length = 60, max_orf_length = 900)
+orfs <- scan_orfs(seqs, genetic_code = "SGC1",
+                  min_orf_length = 60, max_orf_length = 900)
 
 # Present in >= 50\% of input sequences (default)
 conserved <- find_conserved_orfs(orfs, min_identity = 60)
@@ -89,6 +129,10 @@ conserved <- find_conserved_orfs(orfs, min_identity = 60)
 # Require presence in all input sequences
 conserved_strict <- find_conserved_orfs(orfs, min_identity = 60,
                                          min_sequences = 1.0)
+
+# Add a coverage gate and keep anything shared by >= 2 genomes
+conserved_cov <- find_conserved_orfs(orfs, min_identity = 40,
+                                     min_coverage = 0.5, min_genomes = 2)
 
 # Inspect the clusters
 split(conserved[, c("seq_id", "start", "end", "length_aa")],
