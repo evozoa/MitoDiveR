@@ -15,3 +15,9 @@ geromedicine_drive/
 # Local Claude Code settings (machine-specific, do not publish)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Kept local only — not published to GitHub
+CLAUDE.md
+docs/
+analyses/
+manuscript_latex/
