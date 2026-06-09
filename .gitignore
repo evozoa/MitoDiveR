@@ -10,3 +10,8 @@
 
 # rclone mount point for the Google Drive Geromedicine folder
 geromedicine_drive/
+*.rclone.log
+
+# Local Claude Code settings (machine-specific, do not publish)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
