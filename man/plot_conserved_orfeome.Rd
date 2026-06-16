@@ -19,8 +19,9 @@ plot_conserved_orfeome(
 \item{windows}{A \code{data.frame} returned by \code{\link[=find_conserved_windows]{find_conserved_windows()}}.}
 
 \item{acc}{Accession of the genome to plot.  Conserved windows are matched
-on the \code{acc_a} column, i.e. \code{acc} is treated as "genome A" in the
-comparison.  Call once per accession to view both sides of a pair.}
+wherever \code{acc} appears, whether as \code{acc_a} or \code{acc_b}, using the
+corresponding genome coordinates, so either member of a pair can be
+plotted directly.}
 
 \item{genetic_code}{Genetic-code identifier passed to \code{\link[=scan_orfs]{scan_orfs()}}.
 Required (no default) — use \code{"SGC1"} for canonical mito genes or \code{"SGC0"}

@@ -22,8 +22,9 @@
 #'
 #' @param windows A `data.frame` returned by [find_conserved_windows()].
 #' @param acc Accession of the genome to plot.  Conserved windows are matched
-#'   on the `acc_a` column, i.e. `acc` is treated as "genome A" in the
-#'   comparison.  Call once per accession to view both sides of a pair.
+#'   wherever `acc` appears, whether as `acc_a` or `acc_b`, using the
+#'   corresponding genome coordinates, so either member of a pair can be
+#'   plotted directly.
 #' @param genetic_code Genetic-code identifier passed to [scan_orfs()].
 #'   Required (no default) — use `"SGC1"` for canonical mito genes or `"SGC0"`
 #'   for a noncanonical/MDP scan.
@@ -69,11 +70,11 @@ plot_conserved_orfeome <- function(windows,
                                     highlight_color   = "#7a0177",
                                     title             = NULL,
                                     ...) {
-  if (!is.data.frame(windows) ||
-      !all(c("acc_a", "genome_start_a", "genome_end_a") %in% names(windows)))
+  req <- c("acc_a", "acc_b", "genome_start_a", "genome_end_a",
+           "genome_start_b", "genome_end_b")
+  if (!is.data.frame(windows) || !all(req %in% names(windows)))
     stop("'windows' must be a data.frame from find_conserved_windows() ",
-         "(needs columns 'acc_a', 'genome_start_a', 'genome_end_a').",
-         call. = FALSE)
+         "(needs columns ", paste(req, collapse = ", "), ").", call. = FALSE)
   if (missing(acc) || length(acc) != 1L || is.na(acc))
     stop("'acc' must be a single accession to plot.", call. = FALSE)
 
@@ -94,19 +95,25 @@ plot_conserved_orfeome <- function(windows,
   }
 
   ## ---- flag shared ORFs (overlap a conserved window for this acc) ----------
-  win <- windows[windows$acc_a == acc, , drop = FALSE]
+  # find_conserved_windows() fixes an A/B orientation per row, so gather the
+  # window spans for this accession from whichever side(s) it appears on.
+  as_a <- windows[windows$acc_a == acc, , drop = FALSE]
+  as_b <- windows[windows$acc_b == acc, , drop = FALSE]
+  win <- rbind(
+    data.frame(start = as_a$genome_start_a, end = as_a$genome_end_a),
+    data.frame(start = as_b$genome_start_b, end = as_b$genome_end_b))
   if (nrow(win) == 0L)
-    message("No conserved windows for acc_a == '", acc, "'; ",
-            "is it the 'acc_b' member of the pair? All ORFs will read as unique.")
+    message("No conserved windows mention '", acc, "' (as acc_a or acc_b); ",
+            "all ORFs will read as unique.")
   glen <- as.numeric(g$length)
   orfs$shared <- vapply(seq_len(nrow(orfs)), function(i) {
     if (nrow(win) == 0L) return(FALSE)
     s <- orfs$start[i]; e <- orfs$end[i]
     if (!is.na(e) && !is.na(s) && e < s) {
       # wrap-around ORF: covers [s, glen] U [1, e]
-      any((win$genome_end_a >= s) | (win$genome_start_a <= e))
+      any((win$end >= s) | (win$start <= e))
     } else {
-      any(s <= win$genome_end_a & e >= win$genome_start_a)
+      any(s <= win$end & e >= win$start)
     }
   }, logical(1))
 
