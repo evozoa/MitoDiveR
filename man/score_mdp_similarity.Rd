@@ -34,9 +34,9 @@ translated using the genetic code selected in \code{\link[=scan_orfs]{scan_orfs(
 \item{\code{pct_identity}}{Percent identity over the alignment
 (matches / alignment length).}
 \item{\code{alignment_score}}{Raw Smith-Waterman alignment score.}
-\item{\code{query_coverage}}{Fraction of query covered by the alignment (\\%).}
+\item{\code{query_coverage}}{Fraction of query covered by the alignment (\%).}
 \item{\code{mdp_coverage}}{Fraction of the reference MDP covered by the
-alignment (\\%).}
+alignment (\%).}
 }
 Sorted by \code{cluster_id} then \code{pct_identity} (descending).  Returns an empty
 \code{data.frame} invisibly (with a message) if no matches meet \code{min_identity}.
@@ -51,8 +51,11 @@ novel MDPs by similarity to known ones.
 \details{
 \subsection{Built-in MDP reference set}{
 
-The following human MDPs are included: Humanin, Humanin-G (HNG), MOTS-c,
-SHLP1–SHLP6.  Supply additional sequences via \code{custom_mdps} to extend the
+The following human MDPs are included: Humanin, MOTS-c and SHLP1–SHLP6.  Each
+is the UniProt/Swiss-Prot sequence and has been verified to be encoded in the
+human mitochondrial reference (rCRS) under the standard genetic code.  Synthetic
+analogues (e.g. the S14G humanin variant HNG) are not included, since they are
+not encoded in any genome.  Supply additional sequences via \code{custom_mdps} to extend the
 reference, for example with species-specific variants or newly published
 MDPs.
 }

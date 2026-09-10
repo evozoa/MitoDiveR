@@ -69,16 +69,30 @@ meeting the minimum identity threshold.
 \details{
 \subsection{Built-in MDP library}{
 
-The following human MDPs are included by default (canonical sequences):\tabular{lll}{
-   Name \tab Length (aa) \tab Reference \cr
-   Humanin \tab 24 \tab Hashimoto \emph{et al.} 2001 \cr
-   Humanin-G \tab 25 \tab Humanin G14 variant \cr
-   MOTS-c \tab 16 \tab Lee \emph{et al.} 2015 \cr
-   SHLP1–6 \tab 15–24 \tab Cobb \emph{et al.} 2016 \cr
+The natural peptides below are the UniProt/Swiss-Prot sequences, each verified
+to be encoded in the human mitochondrial reference (rCRS, NC_012920.1) and
+translated with the standard genetic code, because MDPs are made by
+cytoplasmic ribosomes. \code{tests/testthat/test-mdp_references.R} re-derives every
+one of them from the rCRS coding sequence.\tabular{llll}{
+   Name \tab Length (aa) \tab UniProt \tab Location in rCRS \cr
+   Humanin \tab 24 \tab Q8IVG9 \tab MT-RNR2 2633-2704 (+) \cr
+   MOTS-c \tab 16 \tab A0A0C5B5G6 \tab MT-RNR1 1343-1390 (+) \cr
+   SHLP1 \tab 24 \tab A0A3G1DJL7 \tab MT-RNR2 2488-2559 (-) \cr
+   SHLP2 \tab 26 \tab A0A3G1DIU6 \tab MT-RNR2 2091-2168 (-) \cr
+   SHLP3 \tab 38 \tab A0A3G1DJQ2 \tab MT-RNR2 1706-1819 (-) \cr
+   SHLP4 \tab 26 \tab A0A3G1DJK2 \tab MT-RNR2 2445-2522 (-) \cr
+   SHLP5 \tab 24 \tab A0A3G1DJL1 \tab MT-RNR2 2783-2854 (-) \cr
+   SHLP6 \tab 20 \tab A0A3G1DJN1 \tab MT-RNR2 2990-3049 (+) \cr
 }
 
 
-Supply \code{mdps} to add custom sequences or replace defaults.
+Synthetic analogues (e.g. the S14G humanin variant, HNG) are deliberately
+absent: they are not encoded in any genome, so they cannot be recovered by a
+genome screen. Supply \code{mdps} to add custom sequences or replace defaults.
+
+Note: before 2026-08, the built-in SHLP1-6 entries were sequences that are not
+encoded anywhere in the human mitochondrial genome; screens run with them could
+not have recovered a real SHLP. They were corrected to the Swiss-Prot sequences.
 }
 
 \subsection{Cluster representative}{
