@@ -16,7 +16,7 @@ derived as \code{end - start + 1}.}
 }
 \value{
 The input \code{data.frame} with nested ORFs removed — one row per
-\verb{(frame, stop)} — preserving all original columns and row order by
+\verb{(seq_id, frame, stop)} — preserving all original columns and row order by
 genomic \code{start}.  Returned unchanged (with a warning) if the required
 columns are absent.
 }
@@ -32,7 +32,10 @@ meaningful ORF counts and uncluttered plots (e.g. \code{\link[=plot_orfeome_circ
 The stop codon's genomic coordinate is the \code{end} on the \code{+} strand and the
 \code{start} on the \code{-} strand (the table keeps \code{start <= end}, so on the minus
 strand the stop sits in the \code{start} column).  ORFs are grouped by
-\verb{(frame, stop coordinate)} and the longest member of each group is kept.
+\verb{(seq_id, strand, frame, stop coordinate)} and the longest member of each
+group is kept.  Grouping includes \code{seq_id} when present, so ORFs sharing
+coordinates across \emph{different} sequences are kept as the distinct loci they
+are rather than collapsed together.
 }
 \examples{
 \dontrun{

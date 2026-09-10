@@ -21,10 +21,13 @@
 #' The stop codon's genomic coordinate is the `end` on the `+` strand and the
 #' `start` on the `-` strand (the table keeps `start <= end`, so on the minus
 #' strand the stop sits in the `start` column).  ORFs are grouped by
-#' `(frame, stop coordinate)` and the longest member of each group is kept.
+#' `(seq_id, strand, frame, stop coordinate)` and the longest member of each
+#' group is kept.  Grouping includes `seq_id` when present, so ORFs sharing
+#' coordinates across *different* sequences are kept as the distinct loci they
+#' are rather than collapsed together.
 #'
 #' @return The input `data.frame` with nested ORFs removed — one row per
-#'   `(frame, stop)` — preserving all original columns and row order by
+#'   `(seq_id, frame, stop)` — preserving all original columns and row order by
 #'   genomic `start`.  Returned unchanged (with a warning) if the required
 #'   columns are absent.
 #'
@@ -51,7 +54,13 @@ collapse_nested_orfs <- function(orfs, length_col = "length_nt") {
 
   # Stop coordinate: 'end' on +, 'start' on - (start <= end convention).
   stop_coord <- ifelse(orfs$strand == "+", orfs$end, orfs$start)
-  key <- paste(orfs$frame, stop_coord, sep = "|")
+  # Group within a sequence: ORFs at the same coordinates in *different*
+  # sequences are distinct loci and must never collapse into one another.
+  # `strand` is redundant while `frame` is signed, but keying on it too keeps
+  # the grouping correct for unsigned-frame input.
+  sid <- if ("seq_id" %in% names(orfs)) as.character(orfs$seq_id)
+         else rep("", nrow(orfs))
+  key <- paste(sid, orfs$strand, orfs$frame, stop_coord, sep = "|")
 
   ord <- order(key, -len)                       # longest first within each stop
   keep_ord <- ord[!duplicated(key[ord])]        # first (= longest) per stop

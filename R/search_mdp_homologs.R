@@ -2,19 +2,25 @@
 # search_mdp_homologs — screen conserved ORFs against known MDPs
 # ============================================================================
 
-# --------------------------------------------------------------------------- #
-# Built-in MDP reference sequences (human, canonical isoforms)                #
-# --------------------------------------------------------------------------- #
+# Built-in MDP reference sequences.
+#
+# Every natural peptide below is the UniProt/Swiss-Prot sequence and has been
+# verified to be encoded in the human mitochondrial reference (rCRS, NC_012920.1)
+# and translated with the STANDARD genetic code (MDPs are made by cytoplasmic
+# ribosomes).  Coordinates are rCRS positions of the coding sequence.
+# tests/testthat/test-mdp_references.R re-derives each peptide from rCRS.
+#
+# Only canonical Swiss-Prot peptides are included; synthetic analogues (e.g. the
+# S14G humanin variant HNG) are not, since they are not encoded in any genome.
 .mdp_references <- list(
-  "Humanin"   = "MAPRGFSCLLLLTSEIDLPVKRRA",
-  "Humanin-G" = "MAPRGFSCLLLLTSEIDLPVKRRAG",
-  "MOTS-c"    = "MRWQEMGYIFYPRKLR",
-  "SHLP1"     = "MAWRQVGSRFFNLLQALQPIFNTA",
-  "SHLP2"     = "MKLFGRGCSIDAFVLQEHLNLKPK",
-  "SHLP3"     = "MLKKFKKHKLLEYLSRK",
-  "SHLP4"     = "MKLLSSIEQACDICRLKK",
-  "SHLP5"     = "MSTPAGSTDFITLGF",
-  "SHLP6"     = "MLVFCPFPQTEQALAALQAIGGR"
+  "Humanin"   = "MAPRGFSCLLLLTSEIDLPVKRRA",   # UniProt Q8IVG9; MT-RNR2 rCRS:2633-2704 (+)
+    "MOTS-c"    = "MRWQEMGYIFYPRKLR",   # UniProt A0A0C5B5G6; MT-RNR1 rCRS:1343-1390 (+)
+  "SHLP1"     = "MCHWAGGASNTGDARGDVFGKQAG",   # UniProt A0A3G1DJL7; MT-RNR2 rCRS:2488-2559 (-)
+  "SHLP2"     = "MGVKFFTLSTRFFPSVQRAVPLWTNS",   # UniProt A0A3G1DIU6; MT-RNR2 rCRS:2091-2168 (-)
+  "SHLP3"     = "MLGYNFSSFPCGTISIAPGFNFYRLYFIWVNGLAKVVW",   # UniProt A0A3G1DJQ2; MT-RNR2 rCRS:1706-1819 (-)
+  "SHLP4"     = "MLEVMFLVNRRGKICRVPFTFFNLSL",   # UniProt A0A3G1DJK2; MT-RNR2 rCRS:2445-2522 (-)
+  "SHLP5"     = "MYCSEVGFCSEVAPTEIFNAGLVV",   # UniProt A0A3G1DJL1; MT-RNR2 rCRS:2783-2854 (-)
+  "SHLP6"     = "MLDQDIPMVQPLLKVRLFND"   # UniProt A0A3G1DJN1; MT-RNR2 rCRS:2990-3049 (+)
 )
 
 
@@ -27,16 +33,30 @@
 #'
 #' @details
 #' ## Built-in MDP library
-#' The following human MDPs are included by default (canonical sequences):
+#' The natural peptides below are the UniProt/Swiss-Prot sequences, each verified
+#' to be encoded in the human mitochondrial reference (rCRS, NC_012920.1) and
+#' translated with the standard genetic code, because MDPs are made by
+#' cytoplasmic ribosomes. `tests/testthat/test-mdp_references.R` re-derives every
+#' one of them from the rCRS coding sequence.
 #'
-#' | Name | Length (aa) | Reference |
-#' |------|-------------|-----------|
-#' | Humanin | 24 | Hashimoto *et al.* 2001 |
-#' | Humanin-G | 25 | Humanin G14 variant |
-#' | MOTS-c | 16 | Lee *et al.* 2015 |
-#' | SHLP1–6 | 15–24 | Cobb *et al.* 2016 |
+#' | Name | Length (aa) | UniProt | Location in rCRS |
+#' |------|-------------|---------|------------------|
+#' | Humanin | 24 | Q8IVG9 | MT-RNR2 2633-2704 (+) |
+#' | MOTS-c | 16 | A0A0C5B5G6 | MT-RNR1 1343-1390 (+) |
+#' | SHLP1 | 24 | A0A3G1DJL7 | MT-RNR2 2488-2559 (-) |
+#' | SHLP2 | 26 | A0A3G1DIU6 | MT-RNR2 2091-2168 (-) |
+#' | SHLP3 | 38 | A0A3G1DJQ2 | MT-RNR2 1706-1819 (-) |
+#' | SHLP4 | 26 | A0A3G1DJK2 | MT-RNR2 2445-2522 (-) |
+#' | SHLP5 | 24 | A0A3G1DJL1 | MT-RNR2 2783-2854 (-) |
+#' | SHLP6 | 20 | A0A3G1DJN1 | MT-RNR2 2990-3049 (+) |
 #'
-#' Supply `mdps` to add custom sequences or replace defaults.
+#' Synthetic analogues (e.g. the S14G humanin variant, HNG) are deliberately
+#' absent: they are not encoded in any genome, so they cannot be recovered by a
+#' genome screen. Supply `mdps` to add custom sequences or replace defaults.
+#'
+#' Note: before 2026-08, the built-in SHLP1-6 entries were sequences that are not
+#' encoded anywhere in the human mitochondrial genome; screens run with them could
+#' not have recovered a real SHLP. They were corrected to the Swiss-Prot sequences.
 #'
 #' ## Cluster representative
 #' One sequence per cluster is selected: the longest protein (stop-codon

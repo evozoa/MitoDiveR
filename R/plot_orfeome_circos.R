@@ -39,6 +39,20 @@
 #'   drawn but unlabelled, to reduce clutter).  Default `c("CDS","rRNA")`.
 #' @param track_height Height of each ORF ring (fraction of radius).  Default
 #'   `0.07`.
+#' @param mark_mdps Logical.  If `TRUE`, highlight ORFs that match a curated
+#'   mitochondrial-derived peptide (Humanin, MOTS-c, SHLP1–6) by aligning each
+#'   ORF's `protein_sequence` against the reference set via
+#'   [score_mdp_similarity()].  Matched ORFs are outlined in `mdp_color` and
+#'   labelled (with the MDP name and percent identity) on an outer marker ring.
+#'   Requires a `protein_sequence` column in `orfs`.  Default `FALSE`.
+#' @param mdp_min_identity Minimum percent identity for an ORF to count as an
+#'   MDP match, passed to [score_mdp_similarity()].  Default `40`.
+#' @param mdp_color Colour for the MDP outline and labels.  Default `"#7a0177"`
+#'   (a magenta distinct from the frame and gene palettes).
+#' @param custom_mdps Optional named character vector of extra MDP sequences to
+#'   match against, passed to [score_mdp_similarity()].  Use this to supply
+#'   curated/UniProt sequences (e.g. the correct human SHLP forms) in addition
+#'   to the built-in reference set.
 #'
 #' @return Invisibly `NULL`; called for its side effect (the plot).
 #'
@@ -67,7 +81,11 @@ plot_orfeome_circos <- function(orfs,
                                 title        = NULL,
                                 frame_colors = NULL,
                                 label_genes  = c("CDS", "rRNA"),
-                                track_height = 0.07) {
+                                track_height = 0.07,
+                                mark_mdps        = FALSE,
+                                mdp_min_identity = 40,
+                                mdp_color        = "#7a0177",
+                                custom_mdps      = NULL) {
   if (!requireNamespace("circlize", quietly = TRUE))
     stop("Package 'circlize' is required for plot_orfeome_circos(). ",
          "Install it with install.packages('circlize').", call. = FALSE)
@@ -77,6 +95,38 @@ plot_orfeome_circos <- function(orfs,
     orfs <- orfs[orfs$seq_id == seq_id, , drop = FALSE]
   if (isTRUE(collapse)) orfs <- collapse_nested_orfs(orfs)
   genome_length <- as.numeric(genome_length)
+
+  ## ---- locate curated MDPs (optional) --------------------------------------
+  # Align each ORF against the curated MDP reference set and map the hits back
+  # to ORF coordinates so they can be outlined/labelled below.  score_mdp_
+  # similarity() tags un-clustered queries as "seq_<row>", i.e. the row index of
+  # the table passed in here, which is exactly this (collapsed) `orfs`.
+  mdp_hits <- NULL
+  if (isTRUE(mark_mdps)) {
+    if (!"protein_sequence" %in% names(orfs))
+      stop("mark_mdps = TRUE needs a 'protein_sequence' column in 'orfs' ",
+           "(use the table returned by scan_orfs()/find_orfs()).", call. = FALSE)
+    sim <- score_mdp_similarity(orfs, min_identity = mdp_min_identity,
+                                custom_mdps = custom_mdps)
+    if (is.data.frame(sim) && nrow(sim)) {
+      sim <- sim[order(sim$query_id, -sim$pct_identity), , drop = FALSE]
+      sim <- sim[!duplicated(sim$query_id), , drop = FALSE]   # best hit per ORF
+      idx <- suppressWarnings(as.integer(sub("^seq_", "", sim$query_id)))
+      ok  <- !is.na(idx) & idx >= 1L & idx <= nrow(orfs)
+      if (any(ok))
+        mdp_hits <- data.frame(row      = idx[ok],
+                               mdp_name = sim$mdp_name[ok],
+                               pct      = sim$pct_identity[ok],
+                               frame    = orfs$frame[idx[ok]],
+                               start    = orfs$start[idx[ok]],
+                               end      = orfs$end[idx[ok]],
+                               stringsAsFactors = FALSE)
+    }
+    if (is.null(mdp_hits))
+      message("mark_mdps: no ORFs matched a curated MDP at >= ",
+              mdp_min_identity, "% identity.")
+  }
+  orfs$..rowid <- seq_len(nrow(orfs))   # stable id to flag hits inside the ring loop
 
   if (is.null(frame_colors))
     frame_colors <- c("1" = "#08519c", "2" = "#3182bd", "3" = "#6baed6",
@@ -101,6 +151,20 @@ plot_orfeome_circos <- function(orfs,
                        points.overflow.warning = FALSE)
   circlize::circos.initialize(sectors = "MT", xlim = c(0, genome_length))
 
+  ## ---- outer MDP marker ring (optional) ------------------------------------
+  if (!is.null(mdp_hits)) {
+    circlize::circos.track(ylim = c(0, 1), track.height = 0.05, bg.border = NA)
+    for (i in seq_len(nrow(mdp_hits))) {
+      mid <- (mdp_hits$start[i] + mdp_hits$end[i]) / 2
+      lab <- paste0(mdp_hits$mdp_name[i], " (", round(mdp_hits$pct[i]), "%)")
+      circlize::circos.points(mid, 0.15, sector.index = "MT",
+                              pch = 18, cex = 0.8, col = mdp_color)
+      circlize::circos.text(mid, 0.55, labels = lab, sector.index = "MT",
+                            facing = "clockwise", niceFacing = TRUE,
+                            adj = c(0, 0.5), cex = 0.5, col = mdp_color)
+    }
+  }
+
   ## ---- six ORF rings (outermost -> innermost) ------------------------------
   for (fr in ring_order) {
     circlize::circos.track(ylim = c(0, 1), track.height = track_height,
@@ -108,16 +172,22 @@ plot_orfeome_circos <- function(orfs,
     sub <- orfs[orfs$frame == fr, , drop = FALSE]
     sub_wrap <- wrap_col[orfs$frame == fr]
     col <- grDevices::adjustcolor(frame_colors[as.character(fr)], alpha.f = 0.7)
+    hit_rows <- if (!is.null(mdp_hits)) mdp_hits$row else integer(0)
     if (nrow(sub)) for (i in seq_len(nrow(sub))) {
       s <- sub$start[i]; e <- sub$end[i]
+      is_hit <- sub$..rowid[i] %in% hit_rows
+      bord   <- if (is_hit) mdp_color else NA
+      lwd    <- if (is_hit) 2.5 else 1
+      ylo    <- if (is_hit) 0.05 else 0.15   # taller bar so the match pops
+      yhi    <- if (is_hit) 0.95 else 0.85
       if (isTRUE(sub_wrap[i]) && e < s) {
-        circlize::circos.rect(s, 0.15, genome_length, 0.85, sector.index = "MT",
-                              col = col, border = NA)
-        circlize::circos.rect(0, 0.15, e, 0.85, sector.index = "MT",
-                              col = col, border = NA)
+        circlize::circos.rect(s, ylo, genome_length, yhi, sector.index = "MT",
+                              col = col, border = bord, lwd = lwd)
+        circlize::circos.rect(0, ylo, e, yhi, sector.index = "MT",
+                              col = col, border = bord, lwd = lwd)
       } else {
-        circlize::circos.rect(s, 0.15, e, 0.85, sector.index = "MT",
-                              col = col, border = NA)
+        circlize::circos.rect(s, ylo, e, yhi, sector.index = "MT",
+                              col = col, border = bord, lwd = lwd)
       }
     }
     # ring label, just inside the top gap
@@ -164,6 +234,10 @@ plot_orfeome_circos <- function(orfs,
                    legend = vapply(ring_order, frame_label, character(1)),
                    fill   = frame_colors[as.character(ring_order)],
                    title  = "frame", bty = "n", cex = 0.7)
+  if (!is.null(mdp_hits))
+    graphics::legend("bottomright", legend = "curated MDP match",
+                     pch = 0, col = mdp_color, pt.lwd = 2.5, pt.cex = 1.4,
+                     bty = "n", cex = 0.7)
   circlize::circos.clear()
   invisible(NULL)
 }

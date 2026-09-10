@@ -19,8 +19,9 @@ Depends:
 Imports:
     BiocGenerics,
     Biostrings,
+    grDevices,
+    graphics,
     httr2,
-    igraph,
     methods,
     pwalign,
     rentrez,

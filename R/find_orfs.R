@@ -189,14 +189,20 @@ find_orfs <- function(sequence,
       start_idxs <- which(is_start)
       if (length(start_idxs) == 0L) next
 
+      # First stop codon strictly after each start, computed for all starts
+      # at once (stop_idxs is sorted ascending, so a single findInterval()
+      # call locates every start's next stop in O(n log n) instead of
+      # re-scanning the whole codon vector per start).
+      stop_idxs      <- which(is_stop)
+      next_stop_idxs <- stop_idxs[findInterval(start_idxs, stop_idxs) + 1L]
+
       orf_rows <- vector("list", length(start_idxs))
       k <- 0L
 
-      for (s_ci in start_idxs) {
-        # First stop codon strictly after the start codon
-        e_ci_candidates <- which(is_stop & seq_along(codons) > s_ci)
-        if (length(e_ci_candidates) == 0L) next
-        e_ci <- e_ci_candidates[[1L]]
+      for (si in seq_along(start_idxs)) {
+        s_ci <- start_idxs[si]
+        e_ci <- next_stop_idxs[si]
+        if (is.na(e_ci)) next
 
         # Nucleotide positions within strand_seq (1-based, inclusive)
         nt_start <- fr + (s_ci - 1L) * 3L
@@ -210,14 +216,6 @@ find_orfs <- function(sequence,
         if (circular && nt_start > genome_len) next
 
         orf_str <- substr(sq, nt_start, nt_end)
-        prot    <- as.character(
-          Biostrings::translate(
-            Biostrings::DNAString(orf_str),
-            genetic.code   = code,
-            no.init.codon  = TRUE,      # translate start codon as-is
-            if.fuzzy.codon = "solve"    # handle N-containing codons
-          )
-        )
 
         ## -- genomic coordinate mapping ------------------------------------
         wraps <- FALSE
@@ -249,12 +247,10 @@ find_orfs <- function(sequence,
           start            = g_start,
           end              = g_end,
           length_nt        = len_nt,
-          length_aa        = nchar(prot),
           start_codon      = codons[s_ci],
           stop_codon       = if (include_stop_codon) codons[e_ci] else NA_character_,
           wraps_around     = wraps,
           orf_sequence     = orf_str,
-          protein_sequence = prot,
           stringsAsFactors = FALSE
         )
       }
@@ -263,7 +259,22 @@ find_orfs <- function(sequence,
         frame_results[[fr]] <- do.call(rbind, orf_rows[seq_len(k)])
     }
 
-    do.call(rbind, Filter(Negate(is.null), frame_results))
+    strand_out <- do.call(rbind, Filter(Negate(is.null), frame_results))
+    if (is.null(strand_out) || nrow(strand_out) == 0L) return(strand_out)
+
+    # Translate every ORF on this strand in a single batched call. translate()
+    # re-initialises its lookup table for a custom genetic code on every
+    # invocation, so calling it once per ORF (rather than once for the whole
+    # DNAStringSet) turns an O(1) setup cost into an O(n_orfs) one.
+    prot_set <- Biostrings::translate(
+      Biostrings::DNAStringSet(strand_out$orf_sequence),
+      genetic.code   = code,
+      no.init.codon  = TRUE,
+      if.fuzzy.codon = "solve"
+    )
+    strand_out$protein_sequence <- as.character(prot_set)
+    strand_out$length_aa        <- nchar(strand_out$protein_sequence)
+    strand_out
   }
 
   ## ---- search both strands -------------------------------------------------

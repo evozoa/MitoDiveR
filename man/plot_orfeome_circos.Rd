@@ -14,7 +14,11 @@ plot_orfeome_circos(
   title = NULL,
   frame_colors = NULL,
   label_genes = c("CDS", "rRNA"),
-  track_height = 0.07
+  track_height = 0.07,
+  mark_mdps = FALSE,
+  mdp_min_identity = 40,
+  mdp_color = "#7a0177",
+  custom_mdps = NULL
 )
 }
 \arguments{
@@ -50,6 +54,24 @@ drawn but unlabelled, to reduce clutter).  Default \code{c("CDS","rRNA")}.}
 
 \item{track_height}{Height of each ORF ring (fraction of radius).  Default
 \code{0.07}.}
+
+\item{mark_mdps}{Logical.  If \code{TRUE}, highlight ORFs that match a curated
+mitochondrial-derived peptide (Humanin, MOTS-c, SHLP1–6) by aligning each
+ORF's \code{protein_sequence} against the reference set via
+\code{\link[=score_mdp_similarity]{score_mdp_similarity()}}.  Matched ORFs are outlined in \code{mdp_color} and
+labelled (with the MDP name and percent identity) on an outer marker ring.
+Requires a \code{protein_sequence} column in \code{orfs}.  Default \code{FALSE}.}
+
+\item{mdp_min_identity}{Minimum percent identity for an ORF to count as an
+MDP match, passed to \code{\link[=score_mdp_similarity]{score_mdp_similarity()}}.  Default \code{40}.}
+
+\item{mdp_color}{Colour for the MDP outline and labels.  Default \code{"#7a0177"}
+(a magenta distinct from the frame and gene palettes).}
+
+\item{custom_mdps}{Optional named character vector of extra MDP sequences to
+match against, passed to \code{\link[=score_mdp_similarity]{score_mdp_similarity()}}.  Use this to supply
+curated/UniProt sequences (e.g. the correct human SHLP forms) in addition
+to the built-in reference set.}
 }
 \value{
 Invisibly \code{NULL}; called for its side effect (the plot).

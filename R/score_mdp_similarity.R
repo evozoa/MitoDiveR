@@ -2,19 +2,25 @@
 # score_mdp_similarity — align ORF proteins against known MDPs
 # ============================================================================
 
-# Known mitochondrial-derived peptides (amino acid sequences, human reference)
-# Sources: Lee et al. 2013 (humanin), Lee et al. 2015 (MOTS-c),
-#          Cobb et al. 2016 (SHLPs), Kim et al. 2018 (MOTS-c variants)
+# Built-in MDP reference sequences.
+#
+# Every natural peptide below is the UniProt/Swiss-Prot sequence and has been
+# verified to be encoded in the human mitochondrial reference (rCRS, NC_012920.1)
+# and translated with the STANDARD genetic code (MDPs are made by cytoplasmic
+# ribosomes).  Coordinates are rCRS positions of the coding sequence.
+# tests/testthat/test-mdp_references.R re-derives each peptide from rCRS.
+#
+# Only canonical Swiss-Prot peptides are included; synthetic analogues (e.g. the
+# S14G humanin variant HNG) are not, since they are not encoded in any genome.
 .MDP_REFERENCE <- list(
-  Humanin        = "MAPRGFSCLLLLTSEIDLPVKRRA",
-  `Humanin-G`    = "MAPRGFSCLLLLTSEIDLPVKRRAG",   # Gly14 isoform (HNG)
-  `MOTS-c`       = "MRWQEMGYIFYPRKLR",
-  SHLP1          = "MAWRQVGSRFFNLLQALQPIFNTA",
-  SHLP2          = "MKLFGRGCSIDAFVLQEHLNLKPK",
-  SHLP3          = "MLKKFKKHKLLEYLSRK",
-  SHLP4          = "MKLLSSIEQACDICRLKK",
-  SHLP5          = "MSTPAGSTDFITLGF",
-  SHLP6          = "MLVFCPFPQTEQALAALQAIGGR"
+  Humanin   = "MAPRGFSCLLLLTSEIDLPVKRRA",   # UniProt Q8IVG9; MT-RNR2 rCRS:2633-2704 (+)
+  `MOTS-c`  = "MRWQEMGYIFYPRKLR",   # UniProt A0A0C5B5G6; MT-RNR1 rCRS:1343-1390 (+)
+  SHLP1     = "MCHWAGGASNTGDARGDVFGKQAG",   # UniProt A0A3G1DJL7; MT-RNR2 rCRS:2488-2559 (-)
+  SHLP2     = "MGVKFFTLSTRFFPSVQRAVPLWTNS",   # UniProt A0A3G1DIU6; MT-RNR2 rCRS:2091-2168 (-)
+  SHLP3     = "MLGYNFSSFPCGTISIAPGFNFYRLYFIWVNGLAKVVW",   # UniProt A0A3G1DJQ2; MT-RNR2 rCRS:1706-1819 (-)
+  SHLP4     = "MLEVMFLVNRRGKICRVPFTFFNLSL",   # UniProt A0A3G1DJK2; MT-RNR2 rCRS:2445-2522 (-)
+  SHLP5     = "MYCSEVGFCSEVAPTEIFNAGLVV",   # UniProt A0A3G1DJL1; MT-RNR2 rCRS:2783-2854 (-)
+  SHLP6     = "MLDQDIPMVQPLLKVRLFND"   # UniProt A0A3G1DJN1; MT-RNR2 rCRS:2990-3049 (+)
 )
 
 #' Score ORF Protein Sequences Against Known Mitochondrial-Derived Peptides
@@ -49,17 +55,20 @@
 #'   \item{`pct_identity`}{Percent identity over the alignment
 #'     (matches / alignment length).}
 #'   \item{`alignment_score`}{Raw Smith-Waterman alignment score.}
-#'   \item{`query_coverage`}{Fraction of query covered by the alignment (\%).}
+#'   \item{`query_coverage`}{Fraction of query covered by the alignment (%).}
 #'   \item{`mdp_coverage`}{Fraction of the reference MDP covered by the
-#'     alignment (\%).}
+#'     alignment (%).}
 #' }
 #' Sorted by `cluster_id` then `pct_identity` (descending).  Returns an empty
 #' `data.frame` invisibly (with a message) if no matches meet `min_identity`.
 #'
 #' @details
 #' ## Built-in MDP reference set
-#' The following human MDPs are included: Humanin, Humanin-G (HNG), MOTS-c,
-#' SHLP1–SHLP6.  Supply additional sequences via `custom_mdps` to extend the
+#' The following human MDPs are included: Humanin, MOTS-c and SHLP1–SHLP6.  Each
+#' is the UniProt/Swiss-Prot sequence and has been verified to be encoded in the
+#' human mitochondrial reference (rCRS) under the standard genetic code.  Synthetic
+#' analogues (e.g. the S14G humanin variant HNG) are not included, since they are
+#' not encoded in any genome.  Supply additional sequences via `custom_mdps` to extend the
 #' reference, for example with species-specific variants or newly published
 #' MDPs.
 #'
