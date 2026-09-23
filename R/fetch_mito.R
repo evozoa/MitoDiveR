@@ -17,7 +17,11 @@
 #'   - A **raw nucleotide string** — treated as an anonymous sequence; features
 #'     will be an empty `data.frame`.
 #'
-#'   All three types may be mixed in a single call.
+#'   All three types may be mixed in a single call.  Accessions are
+#'   case-insensitive, surrounding whitespace is ignored, and a single string
+#'   such as `"NC_028285, NC_012920.1"` is split into separate accessions.
+#'   Anything else (e.g. a species name) is an error; use [fetch_gene()] to
+#'   search by species and gene.
 #' @param api_key Character scalar. NCBI API key for higher rate limits
 #'   (10 requests/s vs 3/s without a key).  Obtain one free at
 #'   <https://www.ncbi.nlm.nih.gov/account/>.  Set to `NULL` (default) to
@@ -29,6 +33,8 @@
 #' \describe{
 #'   \item{`accession`}{The requested accession string.}
 #'   \item{`definition`}{DEFINITION line from the GenBank record.}
+#'   \item{`organism`}{ORGANISM line from the GenBank record (`NA` for FASTA
+#'     and raw-sequence input).}
 #'   \item{`length`}{Sequence length in nucleotides.}
 #'   \item{`sequence`}{The complete mitogenome as a [Biostrings::DNAString].}
 #'   \item{`features`}{A `data.frame` of parsed GenBank features with
@@ -40,7 +46,11 @@
 #' @details
 #' Sequences are fetched via `rentrez::entrez_fetch()` in GenBank flat-file
 #' format (`rettype = "gbwithparts"`).  A brief pause between requests
-#' respects NCBI's rate limits even without an API key.
+#' respects NCBI's rate limits even without an API key, and transient
+#' failures (rate limiting, server errors, dropped connections) are retried
+#' with back-off.  An accession that NCBI cannot return is skipped with a
+#' warning so the remaining records are still returned; an error is raised
+#' only if none can be retrieved.
 #'
 #' Feature locations are simplified to a single `[start, end]` span:
 #' - *complement* locations set `strand = "-"`.
@@ -69,8 +79,8 @@ fetch_mito_genbank <- function(accessions,
     stop("Package 'rentrez' is required. Install with: install.packages('rentrez')",
          call. = FALSE)
 
-  accessions <- as.character(accessions)
-  if (length(accessions) == 0L)
+  inputs <- .classify_genbank_inputs(accessions)
+  if (length(inputs) == 0L)
     stop("'accessions' must be a non-empty character vector.", call. = FALSE)
 
   results <- list()
@@ -80,13 +90,16 @@ fetch_mito_genbank <- function(accessions,
                                gene = character(), product = character(),
                                note = character(), stringsAsFactors = FALSE)
 
-  acc_pattern <- "^[A-Z]{1,2}_?[A-Z0-9]*\\d{4,9}(\\.\\d+)?$"
+  n_ncbi  <- sum(vapply(inputs, function(z) z$type == "accession", logical(1)))
+  failed  <- character()
+  fetched <- 0L
 
-  for (i in seq_along(accessions)) {
-    acc <- accessions[[i]]
+  for (i in seq_along(inputs)) {
+    acc  <- inputs[[i]]$value
+    type <- inputs[[i]]$type
 
     # --- FASTA file -----------------------------------------------------------
-    if (nchar(acc) < 500L && file.exists(acc)) {
+    if (type == "file") {
       if (verbose) message("Reading FASTA file: ", acc)
       seqs <- Biostrings::readDNAStringSet(acc)
       if (length(seqs) == 0L) stop("No sequences found in file: ", acc, call. = FALSE)
@@ -96,6 +109,7 @@ fetch_mito_genbank <- function(accessions,
         nm <- if (nzchar(nm)) nm else paste0("seq_", j)
         results[[nm]] <- list(accession  = nm,
                               definition = names(seqs)[j],
+                              organism   = NA_character_,
                               length     = length(seqs[[j]]),
                               sequence   = seqs[[j]],
                               features   = empty_features)
@@ -104,33 +118,76 @@ fetch_mito_genbank <- function(accessions,
     }
 
     # --- NCBI accession -------------------------------------------------------
-    if (grepl(acc_pattern, trimws(acc))) {
+    if (type == "accession") {
+      if (fetched > 0L) .entrez_pause(api_key)
+      fetched <- fetched + 1L
       if (verbose) message("Fetching ", acc, " ...")
-      raw <- rentrez::entrez_fetch(
-        db      = "nuccore",
-        id      = acc,
-        rettype = "gbwithparts",
-        retmode = "text",
-        api_key = api_key
-      )
+      raw <- tryCatch(
+        .entrez_retry(.efetch, db = "nuccore", id = acc,
+                      rettype = "gbwithparts", retmode = "text",
+                      api_key = api_key),
+        error = function(e) {
+          warning(acc, ": could not be retrieved from NCBI (",
+                  .ncbi_error_reason(e), "); skipped.", call. = FALSE)
+          NULL
+        })
+      if (is.null(raw)) { failed <- c(failed, acc); next }
+      if (!grepl("\nORIGIN", raw)) {
+        warning(acc, ": NCBI returned no sequence record; skipped.", call. = FALSE)
+        failed <- c(failed, acc)
+        next
+      }
       results[[acc]] <- .parse_genbank(raw, acc)
-      if (i < length(accessions))
-        Sys.sleep(if (is.null(api_key)) 0.34 else 0.11)
       next
     }
 
     # --- Raw nucleotide string ------------------------------------------------
     if (verbose) message("Treating input ", i, " as raw sequence.")
-    seq_clean <- Biostrings::DNAString(toupper(gsub("[^ACGTNacgtn]", "", acc)))
+    body <- strsplit(acc, "\n", fixed = TRUE)[[1L]]
+    body <- paste(body[!grepl("^\\s*>", body)], collapse = "")
+    seq_clean <- Biostrings::DNAString(toupper(gsub("[^ACGTNacgtn]", "", body)))
     nm        <- paste0("seq_", i)
     results[[nm]] <- list(accession  = nm,
                           definition = NA_character_,
+                          organism   = NA_character_,
                           length     = length(seq_clean),
                           sequence   = seq_clean,
                           features   = empty_features)
   }
 
+  if (n_ncbi > 0L && length(failed) == n_ncbi && length(results) == 0L)
+    stop("None of the requested accessions could be retrieved from NCBI: ",
+         paste(failed, collapse = ", "), call. = FALSE)
+
   results
+}
+
+
+# --------------------------------------------------------------------------- #
+# Internal: sort fetch_mito_genbank() inputs into files, accessions, and raw   #
+# sequences; expand "A, B" strings; reject anything else with a clear error.  #
+# --------------------------------------------------------------------------- #
+.classify_genbank_inputs <- function(x) {
+  x <- as.character(unlist(x, use.names = FALSE))
+  out <- list()
+  for (el in x) {
+    if (is.na(el) || !nzchar(trimws(el))) next
+    if (nchar(el) < 500L && file.exists(trimws(el))) {
+      out[[length(out) + 1L]] <- list(type = "file", value = trimws(el))
+      next
+    }
+    toks <- .split_accessions(el)
+    if (length(toks) && all(.is_accession(toks))) {
+      for (t in toks) out[[length(out) + 1L]] <- list(type = "accession", value = t)
+      next
+    }
+    if (.looks_like_dna(el)) {
+      out[[length(out) + 1L]] <- list(type = "raw", value = el)
+      next
+    }
+    .stop_bad_input(el, "an NCBI accession, an existing FASTA file, or a DNA sequence")
+  }
+  out
 }
 
 
@@ -144,6 +201,9 @@ fetch_mito_genbank <- function(accessions,
   ## ---- DEFINITION ----------------------------------------------------------
   def_line <- grep("^DEFINITION", lines, value = TRUE)
   definition <- if (length(def_line)) sub("^DEFINITION\\s+", "", def_line[[1L]]) else NA_character_
+
+  org_line <- grep("^\\s+ORGANISM", lines, value = TRUE)
+  organism <- if (length(org_line)) sub("^\\s+ORGANISM\\s+", "", org_line[[1L]]) else NA_character_
 
   ## ---- sequence length from LOCUS ------------------------------------------
   locus_line <- grep("^LOCUS", lines, value = TRUE)
@@ -179,6 +239,7 @@ fetch_mito_genbank <- function(accessions,
   list(
     accession  = accession,
     definition = definition,
+    organism   = organism,
     length     = length(sequence),
     sequence   = sequence,
     features   = features
