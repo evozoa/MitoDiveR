@@ -8,10 +8,12 @@ fetch_sequences(accessions = NULL, fasta_file = NULL, fasta_text = NULL)
 }
 \arguments{
 \item{accessions}{Character vector of NCBI nucleotide accession numbers
-(e.g. \code{"NC_012920.1"}).  Fetched via the Entrez API using
-\code{\link[rentrez:entrez_fetch]{rentrez::entrez_fetch()}}.  \code{NULL} to skip.}
+(e.g. \code{c("NC_012920.1", "NC_028285")}).  Comma- or space-separated
+strings are split, and case and surrounding whitespace are ignored.
+Fetched via the Entrez API using \code{\link[rentrez:entrez_fetch]{rentrez::entrez_fetch()}}.  \code{NULL} to
+skip.  To search by species and gene name instead, use \code{\link[=fetch_gene]{fetch_gene()}}.}
 
-\item{fasta_file}{Character scalar.  Path to a FASTA file on disk.
+\item{fasta_file}{Character vector of paths to FASTA files on disk.
 \code{NULL} to skip.}
 
 \item{fasta_text}{Character scalar or vector.  Raw FASTA content — either a
@@ -19,9 +21,11 @@ single string with embedded newlines or a character vector of lines.
 \code{NULL} to skip.}
 }
 \value{
-A named \link[Biostrings:XStringSet-class]{Biostrings::DNAStringSet}.  Sequence names are set to the
-accession (first whitespace-delimited token of the FASTA header), so they
-remain stable regardless of the retrieval route and serve as \code{seq_id}
+A named \link[Biostrings:XStringSet-class]{Biostrings::DNAStringSet}.  NCBI sequences are named by
+the accession as requested (so \code{fetch_sequences("NC_028285")} returns a
+sequence named \code{"NC_028285"}, not \code{"NC_028285.1"}) and returned in the
+requested order; FASTA sequences are named by the first
+whitespace-delimited token of the header.  These names serve as \code{seq_id}
 values in downstream \code{\link[=scan_orfs]{scan_orfs()}} output.
 }
 \description{
@@ -31,10 +35,15 @@ single named \link[Biostrings:XStringSet-class]{Biostrings::DNAStringSet} suitab
 \code{\link[=scan_orfs]{scan_orfs()}}.
 }
 \details{
-Requires internet access when \code{accessions} is supplied.  NCBI rate-limits
-unauthenticated requests to three per second; \code{\link[rentrez:entrez_fetch]{rentrez::entrez_fetch()}}
-handles retry automatically.  For batches of more than ~200 accessions,
-set an NCBI API key to raise the limit to ten requests per second:
+Requires internet access when \code{accessions} is supplied.  Accessions are
+requested in batches of 200; transient failures (rate limiting, NCBI server
+errors, dropped connections) are retried with back-off.  Accessions NCBI
+does not return are skipped with a warning, and an error is raised if none
+are returned.  Inputs that are not accession numbers (e.g. species names)
+are rejected before any request is made.
+
+NCBI rate-limits unauthenticated requests to three per second.  For large
+jobs, set an NCBI API key to raise the limit to ten requests per second:
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{Sys.setenv(ENTREZ_KEY = "your_key_here")
 }\if{html}{\out{</div>}}

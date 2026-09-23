@@ -10,24 +10,33 @@
 #' [scan_orfs()].
 #'
 #' @param accessions Character vector of NCBI nucleotide accession numbers
-#'   (e.g. `"NC_012920.1"`).  Fetched via the Entrez API using
-#'   [rentrez::entrez_fetch()].  `NULL` to skip.
-#' @param fasta_file Character scalar.  Path to a FASTA file on disk.
+#'   (e.g. `c("NC_012920.1", "NC_028285")`).  Comma- or space-separated
+#'   strings are split, and case and surrounding whitespace are ignored.
+#'   Fetched via the Entrez API using [rentrez::entrez_fetch()].  `NULL` to
+#'   skip.  To search by species and gene name instead, use [fetch_gene()].
+#' @param fasta_file Character vector of paths to FASTA files on disk.
 #'   `NULL` to skip.
 #' @param fasta_text Character scalar or vector.  Raw FASTA content — either a
 #'   single string with embedded newlines or a character vector of lines.
 #'   `NULL` to skip.
 #'
-#' @return A named [Biostrings::DNAStringSet].  Sequence names are set to the
-#'   accession (first whitespace-delimited token of the FASTA header), so they
-#'   remain stable regardless of the retrieval route and serve as `seq_id`
+#' @return A named [Biostrings::DNAStringSet].  NCBI sequences are named by
+#'   the accession as requested (so `fetch_sequences("NC_028285")` returns a
+#'   sequence named `"NC_028285"`, not `"NC_028285.1"`) and returned in the
+#'   requested order; FASTA sequences are named by the first
+#'   whitespace-delimited token of the header.  These names serve as `seq_id`
 #'   values in downstream [scan_orfs()] output.
 #'
 #' @details
-#' Requires internet access when `accessions` is supplied.  NCBI rate-limits
-#' unauthenticated requests to three per second; [rentrez::entrez_fetch()]
-#' handles retry automatically.  For batches of more than ~200 accessions,
-#' set an NCBI API key to raise the limit to ten requests per second:
+#' Requires internet access when `accessions` is supplied.  Accessions are
+#' requested in batches of 200; transient failures (rate limiting, NCBI server
+#' errors, dropped connections) are retried with back-off.  Accessions NCBI
+#' does not return are skipped with a warning, and an error is raised if none
+#' are returned.  Inputs that are not accession numbers (e.g. species names)
+#' are rejected before any request is made.
+#'
+#' NCBI rate-limits unauthenticated requests to three per second.  For large
+#' jobs, set an NCBI API key to raise the limit to ten requests per second:
 #' ```r
 #' Sys.setenv(ENTREZ_KEY = "your_key_here")
 #' ```
@@ -63,24 +72,28 @@ fetch_sequences <- function(accessions = NULL,
 
   ## ---- NCBI accessions -------------------------------------------------------
   if (!is.null(accessions)) {
-    accessions <- as.character(accessions)
+    accessions <- .parse_accession_arg(accessions)
+    if (length(accessions) == 0L)
+      stop("'accessions' contains no accession numbers.", call. = FALSE)
+
     message("Fetching ", length(accessions), " sequence(s) from NCBI...")
-    raw_fasta <- rentrez::entrez_fetch(
-      db      = "nucleotide",
-      id      = accessions,
-      rettype = "fasta",
-      retmode = "text"
-    )
-    tmp_ncbi <- tempfile(fileext = ".fasta")
-    on.exit(unlink(tmp_ncbi), add = TRUE)
-    cat(raw_fasta, file = tmp_ncbi)
-    seqs_list[["ncbi"]] <- Biostrings::readDNAStringSet(tmp_ncbi)
+    seqs_list[["ncbi"]] <- .fetch_fasta_batch(accessions)
   }
 
   ## ---- FASTA file ------------------------------------------------------------
   if (!is.null(fasta_file)) {
-    if (!file.exists(fasta_file))
-      stop("'fasta_file' not found: ", fasta_file, call. = FALSE)
+    fasta_file <- as.character(fasta_file)
+    for (f in fasta_file) {
+      if (file.exists(f)) next
+      if (.is_accession(toupper(trimws(f))))
+        stop("'", f, "' was passed as 'fasta_file' but looks like an accession.\n",
+             "To fetch several accessions, wrap them in c(): ",
+             "fetch_sequences(c(\"",
+             if (length(accessions)) accessions[[1L]] else "NC_012920.1",
+             "\", \"", f, "\"))", call. = FALSE)
+      stop("'fasta_file' not found: ", f,
+           " (working directory: ", getwd(), ")", call. = FALSE)
+    }
     seqs_list[["file"]] <- Biostrings::readDNAStringSet(fasta_file)
   }
 
@@ -98,5 +111,63 @@ fetch_sequences <- function(accessions = NULL,
   # Trim to first whitespace-delimited token (the accession / sequence ID)
   names(out) <- sub("\\s.*$", "", names(out))
 
+  out
+}
+
+
+# --------------------------------------------------------------------------- #
+# Internal: fetch FASTA for a vector of accessions in batches, name results   #
+# by the accession as requested, and warn about any NCBI did not return.      #
+# --------------------------------------------------------------------------- #
+.fetch_fasta_batch <- function(accessions, batch_size = 200L) {
+
+  fetch_one_batch <- function(ids) {
+    tryCatch(
+      .entrez_retry(.efetch, db = "nuccore", id = ids,
+                    rettype = "fasta", retmode = "text"),
+      error = function(e) {
+        # NCBI rejects a batch outright when it holds only bad IDs; fall back
+        # to one-by-one so the good ones still come through.
+        if (length(ids) == 1L) return("")
+        paste(vapply(ids, fetch_one_batch, character(1)), collapse = "\n")
+      })
+  }
+
+  batches <- split(accessions, ceiling(seq_along(accessions) / batch_size))
+  raw <- character(length(batches))
+  for (b in seq_along(batches)) {
+    raw[[b]] <- fetch_one_batch(batches[[b]])
+    if (b < length(batches)) .entrez_pause()
+  }
+  raw <- paste(raw, collapse = "\n")
+
+  # Anything before the first record is an NCBI error message, not sequence.
+  first <- regexpr("(^|\n)>", raw)
+  got <- if (first > 0L) {
+    tmp <- tempfile(fileext = ".fasta")
+    on.exit(unlink(tmp), add = TRUE)
+    cat(substring(raw, first), file = tmp)
+    Biostrings::readDNAStringSet(tmp)
+  } else Biostrings::DNAStringSet()
+
+  # Match requested accessions to returned ones, with or without version.
+  ret_full <- sub("\\s.*$", "", names(got))
+  ret_base <- sub("\\.\\d+$", "", ret_full)
+  idx <- vapply(accessions, function(a) {
+    hit <- if (grepl("\\.\\d+$", a)) which(ret_full == a) else which(ret_base == a)
+    if (length(hit)) hit[[1L]] else NA_integer_
+  }, integer(1))
+
+  missing <- accessions[is.na(idx)]
+  if (length(missing) == length(accessions))
+    stop("NCBI returned no sequences for: ", paste(missing, collapse = ", "),
+         ". Check that these are valid nucleotide accessions.", call. = FALSE)
+  if (length(missing))
+    warning(length(missing), " of ", length(accessions),
+            " accession(s) not returned by NCBI and skipped: ",
+            paste(missing, collapse = ", "), call. = FALSE)
+
+  out <- got[idx[!is.na(idx)]]
+  names(out) <- accessions[!is.na(idx)]
   out
 }

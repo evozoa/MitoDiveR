@@ -17,7 +17,11 @@ be an empty \code{data.frame} (no annotation available from FASTA).
 will be an empty \code{data.frame}.
 }
 
-All three types may be mixed in a single call.}
+All three types may be mixed in a single call.  Accessions are
+case-insensitive, surrounding whitespace is ignored, and a single string
+such as \code{"NC_028285, NC_012920.1"} is split into separate accessions.
+Anything else (e.g. a species name) is an error; use \code{\link[=fetch_gene]{fetch_gene()}} to
+search by species and gene.}
 
 \item{api_key}{Character scalar. NCBI API key for higher rate limits
 (10 requests/s vs 3/s without a key).  Obtain one free at
@@ -32,6 +36,8 @@ a list with:
 \describe{
 \item{\code{accession}}{The requested accession string.}
 \item{\code{definition}}{DEFINITION line from the GenBank record.}
+\item{\code{organism}}{ORGANISM line from the GenBank record (\code{NA} for FASTA
+and raw-sequence input).}
 \item{\code{length}}{Sequence length in nucleotides.}
 \item{\code{sequence}}{The complete mitogenome as a \link[Biostrings:DNAString-class]{Biostrings::DNAString}.}
 \item{\code{features}}{A \code{data.frame} of parsed GenBank features with
@@ -49,7 +55,11 @@ table.  The feature table is used downstream by
 \details{
 Sequences are fetched via \code{rentrez::entrez_fetch()} in GenBank flat-file
 format (\code{rettype = "gbwithparts"}).  A brief pause between requests
-respects NCBI's rate limits even without an API key.
+respects NCBI's rate limits even without an API key, and transient
+failures (rate limiting, server errors, dropped connections) are retried
+with back-off.  An accession that NCBI cannot return is skipped with a
+warning so the remaining records are still returned; an error is raised
+only if none can be retrieved.
 
 Feature locations are simplified to a single \verb{[start, end]} span:
 \itemize{
